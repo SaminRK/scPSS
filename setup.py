@@ -19,7 +19,10 @@ setup(
     install_requires=[
         "numpy",
         "pandas",
-        "scanpy",
+        "scanpy==1.9.6",
+        "anndata==0.10.3",
+        "harmonypy",
+        "kneed",
         "matplotlib",
     ],
 )

@@ -11,40 +11,53 @@ from numpy.typing import ArrayLike
 
 class scPSS:
     def __init__(self, adata: AnnData, sample_key: str, reference_samples: List[str], query_samples: List[str]):
+        """
+        Initialize the scPSS class.
+
+        Parameters:
+        - adata: AnnData object containing the single-cell data.
+        - sample_key: Column name in `adata.obs` indicating sample identifiers.
+        - reference_samples: List of reference sample identifiers.
+        - query_samples: List of query sample identifiers.
+        """
         self.adata = adata
         self.sample_key = sample_key
         self.reference_samples = reference_samples
         self.query_samples = query_samples
 
+    def harmony_integrate(self, max_iter_harmony: int = 10):
+        """
+        Perform Harmony integration on the data.
 
-    def harmony_integrate(self, max_iter_harmony=10):
-        self.max_iter_harmony = max_iter_harmony
-        # Check if 'X_pca' already exists in .obsm
+        Parameters:
+        - max_iter_harmony: Maximum number of iterations for Harmony.
+        """
         if 'X_pca' not in self.adata.obsm:
             print("X_pca not found. Performing PCA...")
-            # Perform PCA using Scanpy
             sc.tl.pca(self.adata)
-        else:
-            print("X_pca already exists in the AnnData object.")
-
-        # Perform integration using Harmony
-        print(f"Performing Harmony integration using key: {self.sample_key}...")
         sce.pp.harmony_integrate(self.adata, key=self.sample_key, max_iter_harmony=max_iter_harmony)
 
-
-    def __get_kth_nn_distance__(self, distances: np.array, k: int) -> np.array:
-        """Returns the k-th nearest neighbor distances from a distance matrix."""
+    def _get_kth_nn_distance(self, distances: np.ndarray, k: int) -> np.ndarray:
         return distances[:, k]
 
-
-    def find_optimal_k(self, reference_distances: np.array, query_distances: np.array, ks: ArrayLike[int], initial_p_vals: ArrayLike[float], store=False) -> int:
+    def find_optimal_k(self, reference_distances: np.ndarray, query_distances: np.ndarray, ks: List[int], initial_p_vals: List[float], store=False) -> int:
         """
-        Finds the optimal k by analyzing outlier ratios for different k values.
+        Find the optimal k value.
+
+        Parameters:
+        - reference_distances: Distance matrix for reference data.
+        - query_distances: Distance matrix for query data.
+        - ks: List of k values to evaluate.
+        - initial_p_vals: List of initial p-values to consider.
+        - store: Whether to store intermediate results.
+
+        Returns:
+        - Optimal k value.
         """
         outlier_ratios_for_k = []
 
         for k in ks:
-            reference_kth_distances = reference_distances[:, k+1]
+            reference_kth_distances = reference_distances[:, k + 1]
             query_kth_distances = query_distances[:, k]
 
             a_fit, loc_fit, scale_fit = gamma.fit(reference_kth_distances)
@@ -59,16 +72,24 @@ class scPSS:
         optimal_k = ks[index_of_optimal]
 
         if store:
-            self.outlier_ratio_for_k = outlier_ratios_for_k
+            self.outlier_ratios_for_k = outlier_ratios_for_k
 
         return optimal_k
 
+    def find_optimal_p_val(self, reference_distances: np.ndarray, query_distances: np.ndarray, k: int, store=False) -> float:
+        """
+        Find the optimal p-value for a given k.
 
-    def find_optimal_p_val(self, reference_distances: np.array, query_distances: np.array, k: int, store=False) -> float:
+        Parameters:
+        - reference_distances: Distance matrix for reference data.
+        - query_distances: Distance matrix for query data.
+        - k: Specific k value.
+        - store: Whether to store intermediate results.
+
+        Returns:
+        - Optimal p-value.
         """
-        Finds the optimal p-value for a specific k.
-        """
-        reference_kth_distances = reference_distances[:, k+1]
+        reference_kth_distances = reference_distances[:, k + 1]
         query_kth_distances = query_distances[:, k]
 
         a_fit, loc_fit, scale_fit = gamma.fit(reference_kth_distances)
@@ -78,24 +99,27 @@ class scPSS:
 
         ps = 1 - qs
         kneedle = KneeLocator(ps, outlier_ratios, curve='concave', direction='increasing')
-        optimal_p = kneedle.knee + .005
+        optimal_p = kneedle.knee + 0.005 if kneedle.knee else None
+
+        if optimal_p is None:
+            raise ValueError("No optimal p-value found. Adjust the data or parameters.")
 
         if store:
             self.outlier_ratios_for_p_val = outlier_ratios
 
         return optimal_p
 
-
-    def find_optimal_parameters(self, n_comps: ArrayLike[int], ks: ArrayLike[int], initial_p_vals: ArrayLike[float]):
+    def find_optimal_parameters(self, n_comps: List[int], ks: List[int], initial_p_vals: List[float]):
         """
-        Finds the optimal parameters for different numbers of components.
-        """
-        self.n_comps = n_comps
-        self.ks = ks
-        self.initial_p_vals = initial_p_vals
+        Find the optimal parameters across multiple numbers of components.
 
-        reference_adata = self.adata[self.obs[self.sample_key].isin(self.reference_samples)]
-        query_adata = self.adata[self.obs[self.sample_key].isin(self.query_samples)]
+        Parameters:
+        - n_comps: List of number of PCA components to evaluate.
+        - ks: List of k values to evaluate.
+        - initial_p_vals: List of initial p-values to consider.
+        """
+        reference_adata = self.adata[self.adata.obs[self.sample_key].isin(self.reference_samples)]
+        query_adata = self.adata[self.adata.obs[self.sample_key].isin(self.query_samples)]
 
         optimal_parameters_for_n_comp = {}
         max_outlier_ratio = 0
@@ -106,16 +130,13 @@ class scPSS:
             X_reference = reference_adata.obsm[obsm_str][:, :n_comp]
             X_query = query_adata.obsm[obsm_str][:, :n_comp]
 
-            reference_distances = cdist(X_reference, X_reference)
-            reference_distances = np.sort(reference_distances, axis=1)
-
-            query_distances = cdist(X_query, X_reference)
-            query_distances = np.sort(query_distances, axis=1)
+            reference_distances = np.sort(cdist(X_reference, X_reference), axis=1)
+            query_distances = np.sort(cdist(X_query, X_reference), axis=1)
 
             optimal_k = self.find_optimal_k(reference_distances, query_distances, ks, initial_p_vals)
             optimal_p = self.find_optimal_p_val(reference_distances, query_distances, optimal_k)
 
-            reference_kth_distances = reference_distances[:, optimal_k+1]
+            reference_kth_distances = reference_distances[:, optimal_k + 1]
             query_kth_distances = query_distances[:, optimal_k]
 
             a_fit, loc_fit, scale_fit = gamma.fit(reference_kth_distances)
@@ -134,7 +155,7 @@ class scPSS:
                 max_outlier_ratio = outlier_ratio
                 optimal_n_comp = n_comp
 
-            print(n_comp, optimal_parameters_for_n_comp[n_comp])
+            print(f"n_comps: {n_comp}, optimal parameters: {optimal_parameters_for_n_comp[n_comp]}")
 
         self.optimal_parameters_for_n_comp = optimal_parameters_for_n_comp
         self.optimal_n_comp = optimal_n_comp

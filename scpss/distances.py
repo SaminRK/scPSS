@@ -1,79 +1,83 @@
 import numpy as np
 from scipy.spatial.distance import cdist
 from scipy.stats import gamma
-
-def find_pk(dists_ref_ref, dists_que_ref, k, q=0.9):
-    dists_ref_ref_ = dists_ref_ref[:, k+1]
-    dists_que_ref_ = dists_que_ref[:, k]
-
-    a_fit, loc_fit, scale_fit = gamma.fist(dists_ref_ref_)
-    thres = gamma.ppf(q, a=a_fit, loc=loc_fit, scale=scale_fit)
-
-    true_positive_ratio = np.mean(dists_ref_ref_ < thres)
-    outlier_ratio = np.mean(dists_que_ref_ > thres)
-
-    return true_positive_ratio, outlier_ratio
-
-start_k = 5
-end_k = 50
-
-def get_k_outlier_ratio_for_q(dists_ref_ref, dists_que_ref, q):
-
-    K_outlier_ratio = []
-
-    for k in range(start_k, end_k):
-        tp, o = find_pk(dists_ref_ref, dists_que_ref, k, q)
-        K_outlier_ratio.append((k, o))
-
-    return K_outlier_ratio
-
-def get_q_outlier_ratio_for_k(k, dists_ref_ref, dists_que_ref):
-    q_outlier_ratio = []
-
-    for iq in range(850, 1001, 5):
-        q = 0.001 * iq
-        tp, o = find_pk(dists_ref_ref, dists_que_ref, k, q)
-        q_outlier_ratio.append((q, o))
-
-    return q_outlier_ratio
-
 from kneed import KneeLocator
 
-obsm_str = 'X_pca_harmony'
 
-def process_with_pc_comp(ad_ref, ad_que, n_comps):
-    X_ref = ad_ref.obsm[obsm_str][:, :n_comps]
-    X_que = ad_que.obsm[obsm_str][:, :n_comps]
+def get_kth_nn_distance(distances: np.array, k: int) -> np.array:
+    return distances[:, k]
 
-    dists_ref_ref = cdist(X_ref, X_ref)
-    dists_ref_ref = np.sort(dists_ref_ref, axis=1)
 
-    dists_que_ref = cdist(X_que, X_ref)
-    dists_que_ref = np.sort(dists_que_ref, axis=1)
 
-    K_outlier_ratio_1 = get_k_outlier_ratio_for_q(dists_ref_ref, dists_que_ref, 0.9)
-    K_outlier_ratio_2 = get_k_outlier_ratio_for_q(dists_ref_ref, dists_que_ref, 0.95)
-    K_outlier_ratio_3 = get_k_outlier_ratio_for_q(dists_ref_ref, dists_que_ref, 0.99)
+def find_optimal_k(reference_distances: np.array, query_distances: np.array, lower_limit: int, upper_limit: int, p_vals: List[int]) -> int:
 
-    average_outlier_ratios = [(a[1]+b[1]+c[1])/3 for a, b, c in zip(K_outlier_ratio_1, K_outlier_ratio_2, K_outlier_ratio_3)]
-    max_index = np.argmax(average_outlier_ratios)
-    optimal_k = max_index + start_k
+    outlier_ratios_for_k = []
 
-    q_outlier_ratio = get_q_outlier_ratio_for_k(optimal_k, dists_ref_ref, dists_que_ref)
+    for k in range(lower_limit, upper_limit + 1):
+        reference_kth_distances = reference_distances[:, k+1]
+        query_kth_distances = query_distances[:, k]
 
-    x_values, y_values = zip(*q_outlier_ratio)
-    x_values = [1 - x for x in x_values]
+        a_fit, loc_fit, scale_fit = gamma.fit(reference_kth_distances)
+        q = 1 - np.array(p_vals)
+        thresholds = gamma.ppf(q, a=a_fit, loc=loc_fit, scale=scale_fit)
+        outlier_ratios = np.mean(query_kth_distances[:, None] > thresholds, axis=0)
+        outlier_ratios_for_k.append(outlier_ratios)
+    
+    outlier_ratios_for_k = np.array(outlier_ratios_for_k)
+    mean_outlier_ratio_for_k = np.mean(outlier_ratios_for_k, axis=1)
+    index_of_optimal = np.argmax(mean_outlier_ratio_for_k)
+    optimal_k = index_of_optimal + upper_limit
 
-    kneedle = KneeLocator(x_values, y_values, curve='concave', direction='increasing')
-    knee = kneedle.knee
-    optimal_p = knee + .005
+    return optimal_k
 
-    dist_ref_ref = dists_ref_ref[:, optimal_k+1]
-    dist_que_ref = dists_que_ref[:, optimal_k]
 
-    a_fit, loc_fit, scale_fit = gamma.fit(dist_ref_ref)
-    pct = 1 - optimal_p
-    thres = gamma.ppf(pct, a=a_fit, loc=loc_fit, scale=scale_fit)
-    predicted_diseased = np.mean(dist_que_ref > thres)
+def find_optimal_p_val(reference_distances, query_distances, k: int):
 
-    return optimal_k, optimal_p, thres, predicted_diseased
+    reference_kth_distances = reference_distances[:, k+1]
+    query_kth_distances = query_distances[:, k]
+    
+    qs = np.arange(850, 1000, 5) * 0.001
+    a_fit, loc_fit, scale_fit = gamma.fit(reference_kth_distances)
+    thresholds = gamma.ppf(qs, a=a_fit, loc=loc_fit, scale=scale_fit)
+    outlier_ratios = np.mean(query_kth_distances[:, None] > thresholds, axis=0)
+
+    kneedle = KneeLocator(qs, outlier_ratios, curve='concave', direction='increasing')
+    optimal_p = 1 - (kneedle.knee + .005)
+
+    return optimal_p
+
+
+
+def find_optimal_parameters(reference_adata, query_adata, n_comps_upper_limit: int):
+
+    optimal_parameters_for_n_comps = {}
+    
+    obsm_str = 'X_pca_harmony'
+    for n_comps in range(2, n_comps_upper_limit+1):
+        X_reference = reference_adata.obsm[obsm_str][:, :n_comps]
+        X_query = query_adata.obsm[obsm_str][:, :n_comps]
+
+        reference_distances = cdist(X_reference, X_reference)
+        reference_distances = np.sort(reference_distances, axis=1)
+
+        query_distances = cdist(X_query, X_reference)
+        query_distances = np.sort(query_distances, axis=1)
+
+        optimal_k = find_optimal_k(reference_distances, query_distances, 5, 50, [.1, .05, .01])
+        optimal_p = find_optimal_p_val(reference_distances, query_distances, optimal_k)
+
+        reference_kth_distances = reference_distances[:, optimal_k+1]
+        query_kth_distances = query_distances[:, optimal_k]
+
+        a_fit, loc_fit, scale_fit = gamma.fit(reference_kth_distances)
+        q = 1 - optimal_p
+        threshold = gamma.ppf(q, a=a_fit, loc=loc_fit, scale=scale_fit)
+        outlier_ratio = np.mean(query_kth_distances > threshold)
+
+        optimal_parameters_for_n_comps[n_comps] = {
+            'optimal_k': optimal_k,
+            'optimal_p': optimal_p,
+            'threshold': threshold,
+            'outlier_ratio': outlier_ratio
+        }
+

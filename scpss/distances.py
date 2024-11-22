@@ -10,7 +10,13 @@ from numpy.typing import ArrayLike
 
 
 class scPSS:
-    def __init__(self, adata: AnnData, sample_key: str, reference_samples: List[str], query_samples: List[str]):
+    def __init__(
+        self,
+        adata: AnnData,
+        sample_key: str,
+        reference_samples: List[str],
+        query_samples: List[str],
+    ):
         """
         Initialize the scPSS class.
 
@@ -32,15 +38,24 @@ class scPSS:
         Parameters:
         - max_iter_harmony: Maximum number of iterations for Harmony.
         """
-        if 'X_pca' not in self.adata.obsm:
+        if "X_pca" not in self.adata.obsm:
             print("X_pca not found. Performing PCA...")
             sc.tl.pca(self.adata)
-        sce.pp.harmony_integrate(self.adata, key=self.sample_key, max_iter_harmony=max_iter_harmony)
+        sce.pp.harmony_integrate(
+            self.adata, key=self.sample_key, max_iter_harmony=max_iter_harmony
+        )
 
     def _get_kth_nn_distance(self, distances: np.ndarray, k: int) -> np.ndarray:
         return distances[:, k]
 
-    def find_optimal_k(self, reference_distances: np.ndarray, query_distances: np.ndarray, ks: List[int], initial_p_vals: List[float], store=False) -> int:
+    def find_optimal_k(
+        self,
+        reference_distances: np.ndarray,
+        query_distances: np.ndarray,
+        ks: List[int],
+        initial_p_vals: List[float],
+        store=False,
+    ) -> int:
         """
         Find the optimal k value.
 
@@ -76,7 +91,13 @@ class scPSS:
 
         return optimal_k
 
-    def find_optimal_p_val(self, reference_distances: np.ndarray, query_distances: np.ndarray, k: int, store=False) -> float:
+    def find_optimal_p_val(
+        self,
+        reference_distances: np.ndarray,
+        query_distances: np.ndarray,
+        k: int,
+        store=False,
+    ) -> float:
         """
         Find the optimal p-value for a given k.
 
@@ -98,7 +119,9 @@ class scPSS:
         outlier_ratios = np.mean(query_kth_distances[:, None] > thresholds, axis=0)
 
         ps = 1 - qs
-        kneedle = KneeLocator(ps, outlier_ratios, curve='concave', direction='increasing')
+        kneedle = KneeLocator(
+            ps, outlier_ratios, curve="concave", direction="increasing"
+        )
         optimal_p = kneedle.knee + 0.005 if kneedle.knee else None
 
         if optimal_p is None:
@@ -109,7 +132,9 @@ class scPSS:
 
         return optimal_p
 
-    def find_optimal_parameters(self, n_comps: List[int], ks: List[int], initial_p_vals: List[float]):
+    def find_optimal_parameters(
+        self, n_comps: List[int], ks: List[int], initial_p_vals: List[float]
+    ):
         """
         Find the optimal parameters across multiple numbers of components.
 
@@ -118,14 +143,18 @@ class scPSS:
         - ks: List of k values to evaluate.
         - initial_p_vals: List of initial p-values to consider.
         """
-        reference_adata = self.adata[self.adata.obs[self.sample_key].isin(self.reference_samples)]
-        query_adata = self.adata[self.adata.obs[self.sample_key].isin(self.query_samples)]
+        reference_adata = self.adata[
+            self.adata.obs[self.sample_key].isin(self.reference_samples)
+        ]
+        query_adata = self.adata[
+            self.adata.obs[self.sample_key].isin(self.query_samples)
+        ]
 
         optimal_parameters_for_n_comp = {}
         max_outlier_ratio = 0
         optimal_n_comp = None
 
-        obsm_str = 'X_pca_harmony'
+        obsm_str = "X_pca_harmony"
         for n_comp in n_comps:
             X_reference = reference_adata.obsm[obsm_str][:, :n_comp]
             X_query = query_adata.obsm[obsm_str][:, :n_comp]
@@ -133,8 +162,12 @@ class scPSS:
             reference_distances = np.sort(cdist(X_reference, X_reference), axis=1)
             query_distances = np.sort(cdist(X_query, X_reference), axis=1)
 
-            optimal_k = self.find_optimal_k(reference_distances, query_distances, ks, initial_p_vals)
-            optimal_p = self.find_optimal_p_val(reference_distances, query_distances, optimal_k)
+            optimal_k = self.find_optimal_k(
+                reference_distances, query_distances, ks, initial_p_vals
+            )
+            optimal_p = self.find_optimal_p_val(
+                reference_distances, query_distances, optimal_k
+            )
 
             reference_kth_distances = reference_distances[:, optimal_k + 1]
             query_kth_distances = query_distances[:, optimal_k]
@@ -145,21 +178,23 @@ class scPSS:
             outlier_ratio = np.mean(query_kth_distances > threshold)
 
             optimal_parameters_for_n_comp[n_comp] = {
-                'optimal_k': optimal_k,
-                'optimal_p': optimal_p,
-                'threshold': threshold,
-                'outlier_ratio': outlier_ratio
+                "optimal_k": optimal_k,
+                "optimal_p": optimal_p,
+                "threshold": threshold,
+                "outlier_ratio": outlier_ratio,
             }
 
             if outlier_ratio > max_outlier_ratio:
                 max_outlier_ratio = outlier_ratio
                 optimal_n_comp = n_comp
 
-            print(f"n_comps: {n_comp}, optimal parameters: {optimal_parameters_for_n_comp[n_comp]}")
+            print(
+                f"n_comps: {n_comp}, optimal parameters: {optimal_parameters_for_n_comp[n_comp]}"
+            )
 
         self.optimal_parameters_for_n_comp = optimal_parameters_for_n_comp
         self.optimal_n_comp = optimal_n_comp
-        self.optimal_k = optimal_parameters_for_n_comp[n_comp]['optimal_k']
-        self.optimal_p = optimal_parameters_for_n_comp[n_comp]['optimal_p']
-        self.threshold = optimal_parameters_for_n_comp[n_comp]['threshold']
-        self.outlier_ratio = optimal_parameters_for_n_comp[n_comp]['outlier_ratio']
+        self.optimal_k = optimal_parameters_for_n_comp[n_comp]["optimal_k"]
+        self.optimal_p = optimal_parameters_for_n_comp[n_comp]["optimal_p"]
+        self.threshold = optimal_parameters_for_n_comp[n_comp]["threshold"]
+        self.outlier_ratio = optimal_parameters_for_n_comp[n_comp]["outlier_ratio"]

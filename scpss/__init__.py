@@ -26,7 +26,7 @@ class scPSS:
             print("Harmony integration already done. Skipping")
             return
         if 'X_pca' not in self.ad.obsm:
-            print("PCA note done. Doing it now...")
+            print("PCA not done. Doing it now...")
             sc.pp.pca(self.ad)
         sce.pp.harmony_integrate(self.ad, key=self.sample_key, max_harmony_iter=max_harmony_iter, random_state=random_state)
     
@@ -79,7 +79,7 @@ class scPSS:
         return optimal_p
 
 
-    def find_optimal_parameters(self, max_n_comps, ks=None, initial_p_vals=None):
+    def find_optimal_parameters(self, max_n_comps, ks=None, initial_p_vals=None, verbose=False):
         ad_ref = self.ad[self.ad.obs[self.sample_key].isin(self.reference_samples)]
         ad_que = self.ad[self.ad.obs[self.sample_key].isin(self.query_samples)]
 
@@ -121,7 +121,8 @@ class scPSS:
                 'ps': 1 - np.arange(850, 1001, 5) * 0.001,
             }
             params.append(param)
-            print(param)
+            if verbose:
+                print(param)
 
             if outlier_ratio > best_outlier_ratio:
                 best_outlier_ratio = outlier_ratio

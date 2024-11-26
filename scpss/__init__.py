@@ -21,14 +21,14 @@ class scPSS:
         self.obsm_str = 'X_pca_harmony'
         
     
-    def harmony_integrate(self, random_state: int = 100):
+    def harmony_integrate(self, max_harmony_iter = 10, random_state: int = 100):
         if 'X_pca_harmony' in self.ad.obsm:
             print("Harmony integration already done. Skipping")
             return
         if 'X_pca' not in self.ad.obsm:
             print("PCA note done. Doing it now...")
             sc.pp.pca(self.ad)
-        sce.pp.harmony_integrate(self.ad, key=self.sample_key, random_state=random_state)
+        sce.pp.harmony_integrate(self.ad, key=self.sample_key, max_harmony_iter=max_harmony_iter, random_state=random_state)
     
     def get_dist_threshold(self, reference_dists, p_val):
         a_fit, loc_fit, scale_fit = gamma.fit(reference_dists)

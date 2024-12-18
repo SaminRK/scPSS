@@ -28,7 +28,7 @@ class scPSS:
         if 'X_pca' not in self.ad.obsm:
             print("PCA not done. Doing it now...")
             sc.pp.pca(self.ad)
-        sce.pp.harmony_integrate(self.ad, key=self.sample_key, max_harmony_iter=max_harmony_iter, random_state=random_state)
+        sce.pp.harmony_integrate(self.ad, key=self.sample_key, max_iter_harmony=max_iter_harmony, random_state=random_state)
     
     def get_dist_threshold(self, reference_dists, p_val):
         a_fit, loc_fit, scale_fit = gamma.fit(reference_dists)

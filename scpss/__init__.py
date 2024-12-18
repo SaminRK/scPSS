@@ -79,10 +79,12 @@ class scPSS:
         return optimal_p
 
 
-    def find_optimal_parameters(self, max_n_comps, ks=None, initial_p_vals=None, verbose=False):
+    def find_optimal_parameters(self, search_n_comps=None, ks=None, initial_p_vals=None, verbose=False):
         ad_ref = self.ad[self.ad.obs[self.sample_key].isin(self.reference_samples)]
         ad_que = self.ad[self.ad.obs[self.sample_key].isin(self.query_samples)]
 
+        if search_n_comps is None:
+            search_n_comps = np.arange(2, 26)
         if ks is None:
             ks = np.arange(5, 51)
         if initial_p_vals is None:
@@ -91,7 +93,7 @@ class scPSS:
 
         best_outlier_ratio = 0
         params = []
-        for n_comps in range(2, max_n_comps+1):
+        for n_comps in search_n_comps:
             X_ref = ad_ref.obsm[self.obsm_str][:, :n_comps]
             X_que = ad_que.obsm[self.obsm_str][:, :n_comps]
 

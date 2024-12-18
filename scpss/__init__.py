@@ -21,7 +21,7 @@ class scPSS:
         self.obsm_str = 'X_pca_harmony'
         
     
-    def harmony_integrate(self, max_harmony_iter = 10, random_state: int = 100):
+    def harmony_integrate(self, max_iter_harmony = 10, random_state: int = 100):
         if 'X_pca_harmony' in self.ad.obsm:
             print("Harmony integration already done. Skipping")
             return

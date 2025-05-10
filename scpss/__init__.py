@@ -86,7 +86,7 @@ class scPSS:
         if search_n_comps is None:
             search_n_comps = np.arange(2, 26)
         if ks is None:
-            ks = np.arange(5, 51)
+            ks = np.arange(5, min(sum(self.reference_mask)-1, 51))
         if initial_p_vals is None:
             initial_p_vals = [0.1, 0.05, 0.01]
 

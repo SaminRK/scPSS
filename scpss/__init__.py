@@ -1,7 +1,7 @@
 import numpy as np
 import scanpy as sc
 from scipy.spatial.distance import cdist
-from scipy.stats import gamma
+from scipy.stats import gamma, lognorm
 from kneed import KneeLocator
 from typing import List
 from scanpy import AnnData
@@ -62,9 +62,9 @@ class scPSS:
         reference_kth_distances = dists_ref_ref[:, k + 1]
         query_kth_distances = dists_que_ref[:, k]
 
-        a_fit, loc_fit, scale_fit = gamma.fit(reference_kth_distances)
+        shape_fit, loc_fit, scale_fit = lognorm.fit(reference_kth_distances, floc=0)
         qs = np.arange(850, 1001, 5) * 0.001
-        thresholds = gamma.ppf(qs, a=a_fit, loc=loc_fit, scale=scale_fit)
+        thresholds = lognorm.ppf(qs, s=shape_fit, loc=loc_fit, scale=scale_fit)
         outlier_ratios = np.mean(query_kth_distances[:, None] > thresholds, axis=0)
 
         ps = 1 - qs

@@ -29,13 +29,21 @@ class scPSS:
             print("PCA not done. Doing it now...")
             sc.pp.pca(self.ad)
         sce.pp.harmony_integrate(self.ad, key=self.sample_key, max_iter_harmony=max_iter_harmony, random_state=random_state)
-    
-    def get_dist_threshold(self, reference_dists, p_val):
+
+
+    def __get_dist_threshold__(self, reference_dists, q):
+        
+        if self.fn_to_fit == "lognormal":
+            a_fit, loc_fit, scale_fit = lognorm.fit(reference_dists, floc=0)
+            threshold = lognorm.ppf(q, a=a_fit, loc=loc_fit, scale=scale_fit)
+            return threshold
+        
         a_fit, loc_fit, scale_fit = gamma.fit(reference_dists)
-        threshold = gamma.ppf(1 - p_val, a=a_fit, loc=loc_fit, scale=scale_fit)
+        threshold = gamma.ppf(q, a=a_fit, loc=loc_fit, scale=scale_fit)
         return threshold
 
-    def find_optimal_k(self, dists_ref_ref, dists_que_ref, ks, initial_p_vals, return_outlier_ratios=False):
+
+    def __find_optimal_k__(self, dists_ref_ref, dists_que_ref, ks, initial_p_vals, return_outlier_ratios=False):
         outlier_ratios_for_k = []
 
         for k in ks:
@@ -57,14 +65,15 @@ class scPSS:
             return optimal_k, outlier_ratios_for_k
         return optimal_k
 
-    def find_optimal_p_val(self, dists_ref_ref, dists_que_ref, optimal_k, return_outlier_ratios=False):
+
+    def __find_optimal_p_val__(self, dists_ref_ref, dists_que_ref, optimal_k, return_outlier_ratios=False):
         k = optimal_k
         reference_kth_distances = dists_ref_ref[:, k + 1]
         query_kth_distances = dists_que_ref[:, k]
 
-        shape_fit, loc_fit, scale_fit = lognorm.fit(reference_kth_distances, floc=0)
         qs = np.arange(850, 1001, 5) * 0.001
-        thresholds = lognorm.ppf(qs, s=shape_fit, loc=loc_fit, scale=scale_fit)
+        thresholds = self.__get_dist_threshold__(reference_kth_distances, qs)
+        
         outlier_ratios = np.mean(query_kth_distances[:, None] > thresholds, axis=0)
 
         ps = 1 - qs
@@ -79,7 +88,7 @@ class scPSS:
         return optimal_p
 
 
-    def find_optimal_parameters(self, search_n_comps=None, ks=None, initial_p_vals=None, verbose=False):
+    def find_optimal_parameters(self, search_n_comps=None, ks=None, initial_p_vals=None, fn_to_fit=None, verbose=False):
         ad_ref = self.ad[self.ad.obs[self.sample_key].isin(self.reference_samples)]
         ad_que = self.ad[self.ad.obs[self.sample_key].isin(self.query_samples)]
 
@@ -90,6 +99,7 @@ class scPSS:
         if initial_p_vals is None:
             initial_p_vals = [0.1, 0.05, 0.01]
 
+        self.fn_to_fit = "lognormal" if fn_to_fit != "gamma" else "gamma"
 
         best_outlier_ratio = 0
         params = []
@@ -103,15 +113,15 @@ class scPSS:
             dists_que_ref = cdist(X_que, X_ref)
             dists_que_ref = np.sort(dists_que_ref, axis=1)
 
-            optimal_k = self.find_optimal_k(dists_ref_ref, dists_que_ref, ks, initial_p_vals)
-            optimal_p = self.find_optimal_p_val(dists_ref_ref, dists_que_ref, optimal_k)
+            optimal_k = self.__find_optimal_k__(dists_ref_ref, dists_que_ref, ks, initial_p_vals)
+            optimal_p = self.__find_optimal_p_val__(dists_ref_ref, dists_que_ref, optimal_k)
 
             if optimal_p is None: continue
 
             dist_ref_ref = dists_ref_ref[:, optimal_k+1]
             dist_que_ref = dists_que_ref[:, optimal_k]
 
-            thres = self.get_dist_threshold(dist_ref_ref, optimal_p)
+            thres = self.__get_dist_threshold__(dist_ref_ref, 1 - optimal_p)
             outlier_ratio = np.mean(dist_que_ref > thres)
 
             param = {
@@ -149,17 +159,17 @@ class scPSS:
         dists_que_ref = cdist(X_que, X_ref)
         dists_que_ref = np.sort(dists_que_ref, axis=1)
 
-        optimal_k, outlier_ratios_for_k = self.find_optimal_k(dists_ref_ref, dists_que_ref,
+        optimal_k, outlier_ratios_for_k = self.__find_optimal_k__(dists_ref_ref, dists_que_ref,
                                                               self.best_params['ks'], self.best_params['initial_p_vals'], return_outlier_ratios=True)
         self.best_params['outlier_ratios_for_k'] = outlier_ratios_for_k
-        optimal_p, outlier_ratios_for_p = self.find_optimal_p_val(dists_ref_ref, dists_que_ref, optimal_k, return_outlier_ratios=True)
+        optimal_p, outlier_ratios_for_p = self.__find_optimal_p_val__(dists_ref_ref, dists_que_ref, optimal_k, return_outlier_ratios=True)
         self.best_params['outlier_ratios_for_p'] = outlier_ratios_for_p
 
         k = optimal_k
         dist_ref_ref = dists_ref_ref[:, k+1]
         dist_que_ref = dists_que_ref[:, k]
 
-        thres = self.get_dist_threshold(dist_ref_ref, optimal_p)
+        thres = self.__get_dist_threshold__(dist_ref_ref, 1 - optimal_p)
         predicted_diseased = dist_que_ref > thres
         
         self.ad.obs.loc[self.reference_mask, 'scpss_condition'] = 'reference'

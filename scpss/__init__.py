@@ -71,7 +71,7 @@ class scPSS:
         kneedle = KneeLocator(
             ps, outlier_ratios, curve="concave", direction="increasing"
         )
-        optimal_p = kneedle.knee + 0.005 if kneedle.knee else 0.05
+        optimal_p = kneedle.knee + 0.005 if kneedle.knee else None
 
         if return_outlier_ratios:
             return optimal_p, outlier_ratios
@@ -105,6 +105,8 @@ class scPSS:
 
             optimal_k = self.find_optimal_k(dists_ref_ref, dists_que_ref, ks, initial_p_vals)
             optimal_p = self.find_optimal_p_val(dists_ref_ref, dists_que_ref, optimal_k)
+
+            if optimal_p is None: continue
 
             dist_ref_ref = dists_ref_ref[:, optimal_k+1]
             dist_que_ref = dists_que_ref[:, optimal_k]

@@ -34,8 +34,8 @@ class scPSS:
     def __get_dist_threshold__(self, reference_dists, q):
 
         if self.fn_to_fit == "lognormal":
-            a_fit, loc_fit, scale_fit = lognorm.fit(reference_dists, floc=0)
-            threshold = lognorm.ppf(q, a=a_fit, loc=loc_fit, scale=scale_fit)
+            shape_fit, loc_fit, scale_fit = lognorm.fit(reference_dists, floc=0)
+            threshold = lognorm.ppf(q, s=shape_fit, loc=loc_fit, scale=scale_fit)
             return threshold
 
         a_fit, loc_fit, scale_fit = gamma.fit(reference_dists)

@@ -6,29 +6,58 @@ from kneed import KneeLocator
 from typing import List
 from scanpy import AnnData
 import scanpy.external as sce
+from typing import Optional, List, Dict
 from numpy.typing import ArrayLike
 
 
 class scPSS:
     def __init__(self, adata: AnnData, sample_key: str, reference_samples: List[str], query_samples: List[str]):
-        self.ad = adata.copy()
+        """
+        Initialize the scPSS framework with reference and query sample groups in an AnnData object.
+
+        Args:
+            adata (AnnData): Annotated data object containing gene expression and metadata.
+            sample_key (str): Key in `adata.obs` that identifies sample groups.
+            reference_samples (List[str]): Sample identifiers considered as reference (typically healthy).
+            query_samples (List[str]): Sample identifiers considered as query (to be classified).
+
+        Attributes:
+            adata (AnnData): A copy of the input AnnData object.
+            sample_key (str): Key used to distinguish samples in `adata.obs`.
+            reference_samples (List[str]): Sample identifiers considered as reference (typically healthy).
+            query_samples (List[str]): Sample identifiers considered as query (to be classified).
+            reference_mask (np.ndarray): Boolean mask for selecting reference cells.
+            query_mask (np.ndarray): Boolean mask for selecting query cells.
+            best_params (dict or None): Stores the best set of parameters after optimization.
+        """
+        self.adata = adata.copy()
         self.sample_key = sample_key
         self.reference_samples = reference_samples
         self.query_samples = query_samples
-        self.reference_mask = self.ad.obs[self.sample_key].isin(self.reference_samples)
-        self.query_mask = self.ad.obs[self.sample_key].isin(self.query_samples)
+        self.reference_mask = self.adata.obs[self.sample_key].isin(self.reference_samples)
+        self.query_mask = self.adata.obs[self.sample_key].isin(self.query_samples)
         self.best_params = None
-        self.obsm_str = "X_pca_harmony"
+        self.__obsm_str__ = "X_pca_harmony"
 
-    def harmony_integrate(self, max_iter_harmony=10, random_state: int = 100):
-        if "X_pca_harmony" in self.ad.obsm:
+    def harmony_integrate(self, max_iter_harmony: int = 10, random_state: int = 100):
+        """
+        Performs Harmony batch correction to correct for batch effects using `self.sample_key`
+        as batch key, if already not performed on `self.adata`. It performs PCA first if not already done.
+
+        Args:
+            max_iter_harmony (int, optional): Maximum number of Harmony iterations.
+                Defaults to 10.
+            random_state (int, optional): Random seed for reproducibility.
+                Defaults to 100.
+        """
+        if "X_pca_harmony" in self.adata.obsm:
             print("Harmony integration already done. Skipping")
             return
-        if "X_pca" not in self.ad.obsm:
+        if "X_pca" not in self.adata.obsm:
             print("PCA not done. Doing it now...")
-            sc.pp.pca(self.ad)
+            sc.pp.pca(self.adata)
         sce.pp.harmony_integrate(
-            self.ad, key=self.sample_key, max_iter_harmony=max_iter_harmony, random_state=random_state
+            self.adata, key=self.sample_key, max_iter_harmony=max_iter_harmony, random_state=random_state
         )
 
     def __get_dist_threshold__(self, reference_dists, q):
@@ -83,9 +112,55 @@ class scPSS:
 
         return optimal_p
 
-    def find_optimal_parameters(self, search_n_comps=None, ks=None, initial_p_vals=None, fn_to_fit=None, verbose=False):
-        ad_ref = self.ad[self.ad.obs[self.sample_key].isin(self.reference_samples)]
-        ad_que = self.ad[self.ad.obs[self.sample_key].isin(self.query_samples)]
+
+    def find_optimal_parameters(
+        self,
+        search_n_comps: Optional[ArrayLike] = None,
+        ks: Optional[ArrayLike] = None,
+        initial_p_vals: Optional[List[float]] = None,
+        fn_to_fit: Optional[str] = None,
+        verbose: bool = False
+    ) -> List[Dict[str, any]]:
+        """
+        Optimizes parameters for detecting pathological shifts in query cells based on distance metrics in PC space.
+
+        This method identifies the optimal parameters (`n_comps`, `k`, and `p`) for distinguishing diseased cells (query cells) from healthy cells (reference cells). The optimization process selects parameters that maximize the outlier ratio (the proportion of query cells classified as pathological). 
+
+        The parameters selected are:
+        - `n_comps`: The number of top principal components used for distance calculations.
+        - `k`: The number of nearest neighbors used to calculate the pathological shift score.
+        - `p`: The significance threshold below which cells are classified as pathological.
+
+        The function iterates over different values of `n_comps`, `k`, and `p` to find the combination that provides the highest outlier ratio, which is indicative of the best separation between query (diseased) and reference (healthy) cells.
+
+        Args:
+            search_n_comps (array-like, optional): A range or list containing the search space for `n_comps`. Default is values from 2 to 25.
+            ks (array-like, optional): A range or list containing the search space for `k`. Default is values from 5 to 50.
+            initial_p_vals (list, optional): A list of initial p-values to test (thresholds for labeling cells as pathological). Default is [0.1, 0.05, 0.01].
+            fn_to_fit (str, optional): Specifies the function to use for fitting the distance distribution ('lognormal' or 'gamma'). Default is 'lognormal'.
+            verbose (bool, optional): If True, prints out the results for each parameter combination. Default is False.
+
+        Returns:
+            list of dicts: A list of dictionaries with results of each combination of parameters tested, where each dictionary contains the following keys:
+                - `n_comps`: The number of components used.
+                - `optimal_k`: The optimal k-value (number of neighbors).
+                - `optimal_p`: The optimal p-value (threshold for pathology).
+                - `threshold`: The distance threshold used to classify outliers.
+                - `outlier_ratio`: The proportion of query cells classified as outliers (pathological).
+                - `ks`: The k-values tested.
+                - `initial_p_vals`: The p-values tested.
+                - `ps`: The p-value thresholds used for outlier classification.
+
+        Notes:
+
+            - The best parameter set is stored in `self.best_params`.
+
+        Example:
+            To optimize parameters with default values, call:
+                params = model.find_optimal_parameters()
+        """
+        ad_ref = self.adata[self.adata.obs[self.sample_key].isin(self.reference_samples)]
+        ad_que = self.adata[self.adata.obs[self.sample_key].isin(self.query_samples)]
 
         if search_n_comps is None:
             search_n_comps = np.arange(2, 26)
@@ -99,8 +174,8 @@ class scPSS:
         best_outlier_ratio = 0
         params = []
         for n_comps in search_n_comps:
-            X_ref = ad_ref.obsm[self.obsm_str][:, :n_comps]
-            X_que = ad_que.obsm[self.obsm_str][:, :n_comps]
+            X_ref = ad_ref.obsm[self.__obsm_str__][:, :n_comps]
+            X_que = ad_que.obsm[self.__obsm_str__][:, :n_comps]
 
             dists_ref_ref = cdist(X_ref, X_ref)
             dists_ref_ref = np.sort(dists_ref_ref, axis=1)
@@ -141,12 +216,42 @@ class scPSS:
         return params
 
     def set_distance_and_condition(self):
-        n_comps = self.best_params["n_comps"]
-        ad_ref = self.ad[self.ad.obs[self.sample_key].isin(self.reference_samples)]
-        ad_que = self.ad[self.ad.obs[self.sample_key].isin(self.query_samples)]
+        """
+        Assigns distances and conditions (diseased or healthy) to the query and reference cells in the dataset 
+        based on the optimal parameters for pathological shift detection.
 
-        X_ref = ad_ref.obsm[self.obsm_str][:, :n_comps]
-        X_que = ad_que.obsm[self.obsm_str][:, :n_comps]
+        This method uses the optimal parameters (`n_comps`, `k`, and `p`) obtained from `self.find_optimal_parameters()` 
+        to pathological distances of query cells and reference cells and stores the values in `self.adata.obs['scpss_distances']`).
+        The function then assigns a "pathological condition" to each cell, classifying query cells as either 
+        "diseased" or "healthy", based on whether their distance exceeds the calculated threshold. These labels are stored in
+        in `self.adata.obs['scpss_condition']`).
+
+        Args:
+            None (this function uses previously optimized parameters stored in `self.best_params`)
+
+        Returns:
+            None: This function adds the following two objects in `self.adata.obs`:
+                - `scpss_distances`: The calculated pathological distances.
+                - `scpss_condition`: A categorical variable indicating the condition of each cell ("reference", "healthy", or "diseased").
+                
+        Notes:
+            - The optimal number of principal components (`n_comps`), nearest neighbors (`k`), and significance threshold (`p`) 
+            are retrieved from `self.best_params`, which should be set prior by calling the `find_optimal_parameters` function.
+            - The distances between query and reference cells are computed using pairwise distance metrics in principal component space.
+            - The threshold for classifying a query cell as "diseased" or "healthy" is determined based on the optimal `k` and `p` values.
+            - This function assigns the labels to the cells and updates the `adata.obs` DataFrame in place.
+
+        Example:
+            After calling `find_optimal_parameters`, you can invoke this function to label and assign conditions to cells as follows:
+                model.set_distance_and_condition()
+
+        """
+        n_comps = self.best_params["n_comps"]
+        ad_ref = self.adata[self.adata.obs[self.sample_key].isin(self.reference_samples)]
+        ad_que = self.adata[self.adata.obs[self.sample_key].isin(self.query_samples)]
+
+        X_ref = ad_ref.obsm[self.__obsm_str__][:, :n_comps]
+        X_que = ad_que.obsm[self.__obsm_str__][:, :n_comps]
 
         dists_ref_ref = cdist(X_ref, X_ref)
         dists_ref_ref = np.sort(dists_ref_ref, axis=1)
@@ -174,10 +279,10 @@ class scPSS:
         thres = self.__get_dist_threshold__(dist_ref_ref, 1 - optimal_p)
         predicted_diseased = dist_que_ref > thres
 
-        self.ad.obs.loc[self.reference_mask, "scpss_condition"] = "reference"
-        self.ad.obs.loc[self.query_mask, "scpss_condition"] = [
+        self.adata.obs.loc[self.reference_mask, "scpss_condition"] = "reference"
+        self.adata.obs.loc[self.query_mask, "scpss_condition"] = [
             "diseased" if d else "healthy" for d in predicted_diseased
         ]
 
-        self.ad.obs.loc[self.reference_mask, "scpss_distances"] = dist_ref_ref
-        self.ad.obs.loc[self.query_mask, "scpss_distances"] = dist_que_ref
+        self.adata.obs.loc[self.reference_mask, "scpss_distances"] = dist_ref_ref
+        self.adata.obs.loc[self.query_mask, "scpss_distances"] = dist_que_ref

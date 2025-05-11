@@ -33,6 +33,8 @@ kiwisolver==1.4.7
     # via matplotlib
 kneed==0.8.5
     # via scPSS (setup.py)
+legacy-api-wrap==1.4.1
+    # via scanpy
 llvmlite==0.43.0
     # via
     #   numba
@@ -92,7 +94,9 @@ patsy==1.0.1
 pillow==11.0.0
     # via matplotlib
 pynndescent==0.5.13
-    # via umap-learn
+    # via
+    #   scanpy
+    #   umap-learn
 pyparsing==3.2.0
     # via matplotlib
 python-dateutil==2.9.0.post0
@@ -101,7 +105,7 @@ python-dateutil==2.9.0.post0
     #   pandas
 pytz==2024.2
     # via pandas
-scanpy==1.9.6
+scanpy==1.11.1
     # via scPSS (setup.py)
 scikit-learn==1.5.2
     # via
@@ -121,20 +125,20 @@ scipy==1.14.1
     #   umap-learn
 seaborn==0.13.2
     # via scanpy
-session-info==1.0.0
+session-info2==0.1.2
     # via scanpy
 six==1.16.0
     # via python-dateutil
 statsmodels==0.14.4
     # via scanpy
-stdlib-list==0.11.0
-    # via session-info
 threadpoolctl==3.5.0
     # via scikit-learn
 tqdm==4.67.0
     # via
     #   scanpy
     #   umap-learn
+typing-extensions==4.13.2
+    # via scanpy
 tzdata==2024.2
     # via pandas
 umap-learn==0.5.7

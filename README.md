@@ -1,7 +1,7 @@
 # scPSS: single-cell Pathological Shift Scoring
 
 [![bioRxiv](https://img.shields.io/badge/bioRxiv-2024.11.27.625593-blue)](https://www.biorxiv.org/content/10.1101/2024.11.27.625593v1)
-[![Python](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/)
+[![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
 
 A statistical framework for quantifying pathological progression in single-cell transcriptomics data by measuring shifts from healthy reference states.
 

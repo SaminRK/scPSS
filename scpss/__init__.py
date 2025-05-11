@@ -112,19 +112,18 @@ class scPSS:
 
         return optimal_p
 
-
     def find_optimal_parameters(
         self,
         search_n_comps: Optional[ArrayLike] = None,
         ks: Optional[ArrayLike] = None,
         initial_p_vals: Optional[List[float]] = None,
         fn_to_fit: Optional[str] = None,
-        verbose: bool = False
+        verbose: bool = False,
     ) -> List[Dict[str, any]]:
         """
         Optimizes parameters for detecting pathological shifts in query cells based on distance metrics in PC space.
 
-        This method identifies the optimal parameters (`n_comps`, `k`, and `p`) for distinguishing diseased cells (query cells) from healthy cells (reference cells). The optimization process selects parameters that maximize the outlier ratio (the proportion of query cells classified as pathological). 
+        This method identifies the optimal parameters (`n_comps`, `k`, and `p`) for distinguishing diseased cells (query cells) from healthy cells (reference cells). The optimization process selects parameters that maximize the outlier ratio (the proportion of query cells classified as pathological).
 
         The parameters selected are:
         - `n_comps`: The number of top principal components used for distance calculations.
@@ -217,12 +216,12 @@ class scPSS:
 
     def set_distance_and_condition(self):
         """
-        Assigns distances and conditions (diseased or healthy) to the query and reference cells in the dataset 
+        Assigns distances and conditions (diseased or healthy) to the query and reference cells in the dataset
         based on the optimal parameters for pathological shift detection.
 
-        This method uses the optimal parameters (`n_comps`, `k`, and `p`) obtained from `self.find_optimal_parameters()` 
+        This method uses the optimal parameters (`n_comps`, `k`, and `p`) obtained from `self.find_optimal_parameters()`
         to pathological distances of query cells and reference cells and stores the values in `self.adata.obs['scpss_distances']`).
-        The function then assigns a "pathological condition" to each cell, classifying query cells as either 
+        The function then assigns a "pathological condition" to each cell, classifying query cells as either
         "diseased" or "healthy", based on whether their distance exceeds the calculated threshold. These labels are stored in
         in `self.adata.obs['scpss_condition']`).
 
@@ -233,9 +232,9 @@ class scPSS:
             None: This function adds the following two objects in `self.adata.obs`:
                 - `scpss_distances`: The calculated pathological distances.
                 - `scpss_condition`: A categorical variable indicating the condition of each cell ("reference", "healthy", or "diseased").
-                
+
         Notes:
-            - The optimal number of principal components (`n_comps`), nearest neighbors (`k`), and significance threshold (`p`) 
+            - The optimal number of principal components (`n_comps`), nearest neighbors (`k`), and significance threshold (`p`)
             are retrieved from `self.best_params`, which should be set prior by calling the `find_optimal_parameters` function.
             - The distances between query and reference cells are computed using pairwise distance metrics in principal component space.
             - The threshold for classifying a query cell as "diseased" or "healthy" is determined based on the optimal `k` and `p` values.

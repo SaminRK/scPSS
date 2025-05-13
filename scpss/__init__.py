@@ -51,9 +51,11 @@ class scPSS:
                 Defaults to 100.
         """
         sc.pp.pca(self.adata)
+        print("✅ PCA Complete.")
         sce.pp.harmony_integrate(
             self.adata, key=self.sample_key, max_iter_harmony=max_iter_harmony, random_state=random_state
         )
+        print("✅ Harmony Integration Complete.")
 
     def __get_dist_threshold__(self, reference_dists, q):
 
@@ -206,7 +208,8 @@ class scPSS:
             if outlier_ratio > best_outlier_ratio:
                 best_outlier_ratio = outlier_ratio
                 self.best_params = param
-
+        
+        print("✅ Found Optimal Paramters.")
         return params
 
     def set_distance_and_condition(self):
@@ -280,3 +283,6 @@ class scPSS:
 
         self.adata.obs.loc[self.reference_mask, "scpss_distances"] = dist_ref_ref
         self.adata.obs.loc[self.query_mask, "scpss_distances"] = dist_que_ref
+
+        print("✅ Stored distances and conditions in Anndata object.")
+        

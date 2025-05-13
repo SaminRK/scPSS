@@ -41,8 +41,8 @@ class scPSS:
 
     def harmony_integrate(self, max_iter_harmony: int = 10, random_state: int = 100):
         """
-        Performs Harmony batch correction to correct for batch effects using `self.sample_key`
-        as batch key, if already not performed on `self.adata`. It performs PCA first if not already done.
+        It performs PCA first, then performs Harmony batch correction to correct for batch
+        effects using `self.sample_key` as batch key.
 
         Args:
             max_iter_harmony (int, optional): Maximum number of Harmony iterations.
@@ -50,12 +50,7 @@ class scPSS:
             random_state (int, optional): Random seed for reproducibility.
                 Defaults to 100.
         """
-        if "X_pca_harmony" in self.adata.obsm:
-            print("Harmony integration already done. Skipping")
-            return
-        if "X_pca" not in self.adata.obsm:
-            print("PCA not done. Doing it now...")
-            sc.pp.pca(self.adata)
+        sc.pp.pca(self.adata)
         sce.pp.harmony_integrate(
             self.adata, key=self.sample_key, max_iter_harmony=max_iter_harmony, random_state=random_state
         )

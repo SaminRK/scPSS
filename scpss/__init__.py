@@ -90,7 +90,7 @@ class scPSS:
             return optimal_k, outlier_ratios_for_k
         return optimal_k
 
-    def __find_optimal_p_val__(self, dists_ref_ref, dists_que_ref, optimal_k, return_outlier_ratios=False):
+    def __find_optimal_p_val__(self, dists_ref_ref, dists_que_ref, optimal_k, max_p, return_outlier_ratios=False):
         k = optimal_k
         reference_kth_distances = dists_ref_ref[:, k + 1]
         query_kth_distances = dists_que_ref[:, k]
@@ -102,7 +102,7 @@ class scPSS:
 
         ps = 1 - qs
         kneedle = KneeLocator(ps, outlier_ratios, curve="concave", direction="increasing")
-        optimal_p = kneedle.knee + 0.005 if kneedle.knee else None
+        optimal_p = min(kneedle.knee + 0.005, max_p) if kneedle.knee else None
 
         if return_outlier_ratios:
             return optimal_p, outlier_ratios
@@ -112,7 +112,8 @@ class scPSS:
     def find_optimal_parameters(
         self,
         search_n_comps: Optional[ArrayLike] = None,
-        ks: Optional[ArrayLike] = None,
+        search_ks: Optional[ArrayLike] = None,
+        maximum_p_val: int = 0.1,
         initial_p_vals: Optional[List[float]] = None,
         fn_to_fit: Optional[str] = None,
         verbose: bool = False,
@@ -131,7 +132,8 @@ class scPSS:
 
         Args:
             search_n_comps (array-like, optional): A range or list containing the search space for `n_comps`. Default is values from 2 to 25.
-            ks (array-like, optional): A range or list containing the search space for `k`. Default is values from 5 to 50.
+            search_ks (array-like, optional): A range or list containing the search space for `k`. Default is values from 5 to 50.
+            maximum_p_val (int, optional): Maximum allowed p-value `p` cutoff. Default is 0.1.
             initial_p_vals (list, optional): A list of initial p-values to test (thresholds for labeling cells as pathological). Default is [0.1, 0.05, 0.01].
             fn_to_fit (str, optional): Specifies the function to use for fitting the distance distribution ('lognormal' or 'gamma'). Default is 'lognormal'.
             verbose (bool, optional): If True, prints out the results for each parameter combination. Default is False.
@@ -160,8 +162,8 @@ class scPSS:
 
         if search_n_comps is None:
             search_n_comps = np.arange(2, 26)
-        if ks is None:
-            ks = np.arange(5, min(sum(self.reference_mask) - 1, 51))
+        if search_ks is None:
+            search_ks = np.arange(5, min(sum(self.reference_mask) - 1, 51))
         if initial_p_vals is None:
             initial_p_vals = [0.1, 0.05, 0.01]
 
@@ -179,8 +181,8 @@ class scPSS:
             dists_que_ref = cdist(X_que, X_ref)
             dists_que_ref = np.sort(dists_que_ref, axis=1)
 
-            optimal_k = self.__find_optimal_k__(dists_ref_ref, dists_que_ref, ks, initial_p_vals)
-            optimal_p = self.__find_optimal_p_val__(dists_ref_ref, dists_que_ref, optimal_k)
+            optimal_k = self.__find_optimal_k__(dists_ref_ref, dists_que_ref, search_ks, initial_p_vals)
+            optimal_p = self.__find_optimal_p_val__(dists_ref_ref, dists_que_ref, optimal_k, maximum_p_val)
 
             if optimal_p is None:
                 continue
@@ -197,7 +199,8 @@ class scPSS:
                 "optimal_p": optimal_p,
                 "threshold": thres,
                 "outlier_ratio": outlier_ratio,
-                "ks": ks,
+                "ks": search_ks,
+                "max_p_val": maximum_p_val,
                 "initial_p_vals": initial_p_vals,
                 "ps": 1 - np.arange(850, 1001, 5) * 0.001,
             }
@@ -265,7 +268,7 @@ class scPSS:
         )
         self.best_params["outlier_ratios_for_k"] = outlier_ratios_for_k
         optimal_p, outlier_ratios_for_p = self.__find_optimal_p_val__(
-            dists_ref_ref, dists_que_ref, optimal_k, return_outlier_ratios=True
+            dists_ref_ref, dists_que_ref, optimal_k, self.best_params["max_p_val"], return_outlier_ratios=True
         )
         self.best_params["outlier_ratios_for_p"] = outlier_ratios_for_p
 

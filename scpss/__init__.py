@@ -111,6 +111,7 @@ class scPSS:
 
     def find_optimal_parameters(
         self,
+        distance_metric="euclidean",
         search_n_comps: Optional[ArrayLike] = None,
         search_ks: Optional[ArrayLike] = None,
         maximum_p_val: int = 0.1,
@@ -160,6 +161,8 @@ class scPSS:
         ad_ref = self.adata[self.adata.obs[self.sample_key].isin(self.reference_samples)]
         ad_que = self.adata[self.adata.obs[self.sample_key].isin(self.query_samples)]
 
+        self.distance_metric = distance_metric
+
         if search_n_comps is None:
             search_n_comps = np.arange(2, 26)
         if search_ks is None:
@@ -175,10 +178,10 @@ class scPSS:
             X_ref = ad_ref.obsm[self.__obsm_str__][:, :n_comps]
             X_que = ad_que.obsm[self.__obsm_str__][:, :n_comps]
 
-            dists_ref_ref = cdist(X_ref, X_ref)
+            dists_ref_ref = cdist(X_ref, X_ref, metric=self.distance_metric)
             dists_ref_ref = np.sort(dists_ref_ref, axis=1)
 
-            dists_que_ref = cdist(X_que, X_ref)
+            dists_que_ref = cdist(X_que, X_ref, metric=self.distance_metric)
             dists_que_ref = np.sort(dists_que_ref, axis=1)
 
             optimal_k = self.__find_optimal_k__(dists_ref_ref, dists_que_ref, search_ks, initial_p_vals)
@@ -253,10 +256,10 @@ class scPSS:
         X_ref = ad_ref.obsm[self.__obsm_str__][:, :n_comps]
         X_que = ad_que.obsm[self.__obsm_str__][:, :n_comps]
 
-        dists_ref_ref = cdist(X_ref, X_ref)
+        dists_ref_ref = cdist(X_ref, X_ref, metric=self.distance_metric)
         dists_ref_ref = np.sort(dists_ref_ref, axis=1)
 
-        dists_que_ref = cdist(X_que, X_ref)
+        dists_que_ref = cdist(X_que, X_ref, metric=self.distance_metric)
         dists_que_ref = np.sort(dists_que_ref, axis=1)
 
         optimal_k, outlier_ratios_for_k = self.__find_optimal_k__(

@@ -75,9 +75,8 @@ class scPSS:
             reference_kth_distances = dists_ref_ref[:, k + 1]
             query_kth_distances = dists_que_ref[:, k]
 
-            a_fit, loc_fit, scale_fit = gamma.fit(reference_kth_distances)
             q = 1 - np.array(initial_p_vals)
-            thresholds = gamma.ppf(q, a=a_fit, loc=loc_fit, scale=scale_fit)
+            thresholds = self.__get_dist_threshold__(reference_kth_distances, q)
             outlier_ratios = np.mean(query_kth_distances[:, None] > thresholds, axis=0)
             outlier_ratios_for_k.append(outlier_ratios)
 

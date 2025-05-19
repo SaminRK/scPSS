@@ -11,7 +11,7 @@ setup(
     url="https://github.com/SaminRK/scPSS",
     packages=find_packages(),
     classifiers=[
-        "Programming Language :: Python :: 3.11",
+        "Programming Language :: Python :: 3.10",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",
     ],
@@ -19,7 +19,7 @@ setup(
     install_requires=[
         "numpy",
         "pandas",
-        "scanpy==1.11.1",
+        "scanpy==1.9.6",
         "anndata==0.10.3",
         "harmonypy",
         "kneed",

@@ -71,11 +71,10 @@ class scPSS:
     def __find_optimal_k__(self, dists_ref_ref, dists_que_ref, ks, initial_p_vals, return_outlier_ratios=False):
         outlier_ratios_for_k = []
 
+        q = 1 - np.array(initial_p_vals)
         for k in ks:
             reference_kth_distances = dists_ref_ref[:, k + 1]
             query_kth_distances = dists_que_ref[:, k]
-
-            q = 1 - np.array(initial_p_vals)
             thresholds = self.__get_dist_threshold__(reference_kth_distances, q)
             outlier_ratios = np.mean(query_kth_distances[:, None] > thresholds, axis=0)
             outlier_ratios_for_k.append(outlier_ratios)

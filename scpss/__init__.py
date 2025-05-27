@@ -9,6 +9,8 @@ import scanpy.external as sce
 from typing import Optional, List, Dict
 from numpy.typing import ArrayLike
 
+from .distance_functions import custom_metrics, CDIST_METRICS
+
 
 class scPSS:
     def __init__(self, adata: AnnData, sample_key: str, reference_samples: List[str], query_samples: List[str]):
@@ -37,7 +39,7 @@ class scPSS:
         self.reference_mask = self.adata.obs[self.sample_key].isin(self.reference_samples)
         self.query_mask = self.adata.obs[self.sample_key].isin(self.query_samples)
         self.best_params = None
-        self.__obsm_str__ = "X_pca_harmony"
+        self.__obsm_str__ = "X_pca"
 
     def harmony_integrate(self, max_iter_harmony: int = 10, random_state: int = 100):
         """
@@ -55,6 +57,7 @@ class scPSS:
         sce.pp.harmony_integrate(
             self.adata, key=self.sample_key, max_iter_harmony=max_iter_harmony, random_state=random_state
         )
+        self.__obsm_str__ = "X_pca_harmony"
         print("✅ Harmony Integration Complete.")
 
     def __get_dist_threshold__(self, reference_dists, q):
@@ -106,6 +109,16 @@ class scPSS:
             return optimal_p, outlier_ratios
 
         return optimal_p
+    
+    def __get_dist_fn__(self, distance_metric="euclidean"):
+        if distance_metric in CDIST_METRICS:
+            return lambda A, B: cdist(A, B, metric=distance_metric)
+        
+        if distance_metric in custom_metrics:
+            return lambda A, B: custom_metrics[distance_metric](A, B)
+
+        raise ValueError(f"Unsupported distance metric: {distance_metric}")
+
 
     def find_optimal_parameters(
         self,
@@ -172,14 +185,15 @@ class scPSS:
 
         best_outlier_ratio = 0
         params = []
+        dist_fn = self.__get_dist_fn__(self.distance_metric)
         for n_comps in search_n_comps:
             X_ref = ad_ref.obsm[self.__obsm_str__][:, :n_comps]
             X_que = ad_que.obsm[self.__obsm_str__][:, :n_comps]
 
-            dists_ref_ref = cdist(X_ref, X_ref, metric=self.distance_metric)
+            dists_ref_ref = dist_fn(X_ref, X_ref)
             dists_ref_ref = np.sort(dists_ref_ref, axis=1)
 
-            dists_que_ref = cdist(X_que, X_ref, metric=self.distance_metric)
+            dists_que_ref = dist_fn(X_que, X_ref)
             dists_que_ref = np.sort(dists_que_ref, axis=1)
 
             optimal_k = self.__find_optimal_k__(dists_ref_ref, dists_que_ref, search_ks, initial_p_vals)
@@ -213,7 +227,7 @@ class scPSS:
                 best_outlier_ratio = outlier_ratio
                 self.best_params = param
         
-        print("✅ Found Optimal Paramters.")
+        print("✅ Found Optimal Parameters.")
         return params
 
     def set_distance_and_condition(self):
@@ -254,10 +268,12 @@ class scPSS:
         X_ref = ad_ref.obsm[self.__obsm_str__][:, :n_comps]
         X_que = ad_que.obsm[self.__obsm_str__][:, :n_comps]
 
-        dists_ref_ref = cdist(X_ref, X_ref, metric=self.distance_metric)
+        dist_fn = self.__get_dist_fn__(self.distance_metric)
+
+        dists_ref_ref = dist_fn(X_ref, X_ref)
         dists_ref_ref = np.sort(dists_ref_ref, axis=1)
 
-        dists_que_ref = cdist(X_que, X_ref, metric=self.distance_metric)
+        dists_que_ref = dist_fn(X_que, X_ref)
         dists_que_ref = np.sort(dists_que_ref, axis=1)
 
         optimal_k, outlier_ratios_for_k = self.__find_optimal_k__(

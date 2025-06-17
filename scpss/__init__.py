@@ -71,6 +71,17 @@ class scPSS:
         threshold = gamma.ppf(q, a=a_fit, loc=loc_fit, scale=scale_fit)
         return threshold
 
+    def __get_p_values__(self, reference_dists, dists):
+
+        if self.fn_to_fit == "lognormal":
+            shape_fit, loc_fit, scale_fit = lognorm.fit(reference_dists, floc=min(0, np.min(reference_dists) - 1e-20))
+            p_values = 1 - lognorm.cdf(dists, s=shape_fit, loc=loc_fit, scale=scale_fit)
+            return p_values
+
+        a_fit, loc_fit, scale_fit = gamma.fit(reference_dists)
+        p_values = 1 - gamma.cdf(dists, a=a_fit, loc=loc_fit, scale=scale_fit)
+        return p_values
+
     def __find_optimal_k__(self, dists_ref_ref, dists_que_ref, ks, initial_p_vals, return_outlier_ratios=False):
         outlier_ratios_for_k = []
 
@@ -262,8 +273,8 @@ class scPSS:
 
         """
         n_comps = self.best_params["n_comps"]
-        ad_ref = self.adata[self.adata.obs[self.sample_key].isin(self.reference_samples)]
-        ad_que = self.adata[self.adata.obs[self.sample_key].isin(self.query_samples)]
+        ad_ref = self.adata[self.reference_mask]
+        ad_que = self.adata[self.query_mask]
 
         X_ref = ad_ref.obsm[self.__obsm_str__][:, :n_comps]
         X_que = ad_que.obsm[self.__obsm_str__][:, :n_comps]
@@ -303,6 +314,23 @@ class scPSS:
 
         self.adata.obs.loc[self.reference_mask, "scpss_distances"] = dist_ref_ref
         self.adata.obs.loc[self.query_mask, "scpss_distances"] = dist_que_ref
+
+        p_values_ref = self.__get_p_values__(dists_ref_ref, dists_ref_ref)
+        p_values_que = self.__get_p_values__(dists_ref_ref, dists_que_ref)
+
+        self.adata.obs.loc[self.reference_mask, "scpss_p_values"] = p_values_ref
+        self.adata.obs.loc[self.query_mask, "scpss_p_values"] = p_values_que
+
+        all_p_values = np.concatenate([p_values_ref, p_values_que])
+
+        from statsmodels.stats.multitest import multipletests
+
+        rej_all, pvals_all_corrected, _, _ = multipletests(all_p_values, alpha=0.1, method='fdr_bh')
+
+        self.adata.obs.loc[self.reference_mask, "scpss_p_values_bh"] = pvals_all_corrected[:len(p_values_ref)]
+        self.adata.obs.loc[self.query_mask, "scpss_p_values_bh"] = pvals_all_corrected[len(p_values_ref):]
+        self.adata.obs.loc[self.reference_mask, "scpss_bh_significant"] = rej_all[:len(p_values_ref)]
+        self.adata.obs.loc[self.query_mask, "scpss_bh_significant"] = rej_all[len(p_values_ref):]
 
         print("✅ Stored distances and conditions in Anndata object.")
         

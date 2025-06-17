@@ -241,7 +241,7 @@ class scPSS:
         print("✅ Found Optimal Parameters.")
         return params
 
-    def set_distance_and_condition(self):
+    def set_distance_and_condition(self, bh_fdr=0.05):
         """
         Assigns distances and conditions (diseased or healthy) to the query and reference cells in the dataset
         based on the optimal parameters for pathological shift detection.
@@ -325,12 +325,13 @@ class scPSS:
 
         from statsmodels.stats.multitest import multipletests
 
-        rej_all, pvals_all_corrected, _, _ = multipletests(all_p_values, alpha=0.1, method='fdr_bh')
+        rej_all, pvals_all_corrected, _, _ = multipletests(all_p_values, alpha=bh_fdr, method='fdr_bh')
+        labels = np.where(rej_all, "diseased", "healthy")
 
         self.adata.obs.loc[self.reference_mask, "scpss_p_values_bh"] = pvals_all_corrected[:len(p_values_ref)]
         self.adata.obs.loc[self.query_mask, "scpss_p_values_bh"] = pvals_all_corrected[len(p_values_ref):]
-        self.adata.obs.loc[self.reference_mask, "scpss_bh_significant"] = rej_all[:len(p_values_ref)]
-        self.adata.obs.loc[self.query_mask, "scpss_bh_significant"] = rej_all[len(p_values_ref):]
+        self.adata.obs.loc[self.reference_mask, "scpss_condition_bh"] = labels[:len(p_values_ref)]
+        self.adata.obs.loc[self.query_mask, "scpss_condition_bh"] = labels[len(p_values_ref):]
 
         print("✅ Stored distances and conditions in Anndata object.")
         

@@ -314,12 +314,12 @@ class scPSS:
         self.adata.obs.loc[self.query_mask, "scpss_condition"] = [
             self._pathological_label if d else self._healthy_label for d in is_pathological
         ]
+        
+        self.adata.obs.loc[self.reference_mask, "scpss_outlier"] = dist_ref_ref > thres
+        self.adata.obs.loc[self.query_mask, "scpss_outlier"] = dist_que_ref > thres
         self.adata.obs["scpss_outlier"] = np.where(
            self.adata.obs["scpss_outlier"], "Outlier", "Inlier"
         )
-
-        self.adata.obs.loc[self.reference_mask, "scpss_outlier"] = dist_ref_ref > thres
-        self.adata.obs.loc[self.query_mask, "scpss_outlier"] = dist_que_ref > thres
 
         self.adata.obs.loc[self.reference_mask, "scpss_distances"] = dist_ref_ref
         self.adata.obs.loc[self.query_mask, "scpss_distances"] = dist_que_ref

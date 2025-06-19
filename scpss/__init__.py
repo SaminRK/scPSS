@@ -40,6 +40,9 @@ class scPSS:
         self.query_mask = self.adata.obs[self.sample_key].isin(self.query_samples)
         self.best_params = None
         self.__obsm_str__ = "X_pca"
+        self._reference_label = "reference"
+        self._healthy_label = "healthy"
+        self._pathological_label = "pathological"
 
     def harmony_integrate(self, max_iter_harmony: int = 10, random_state: int = 100):
         """
@@ -241,7 +244,7 @@ class scPSS:
         print("✅ Found Optimal Parameters.")
         return params
 
-    def set_distance_and_condition(self, bh_fdr=0.05):
+    def set_distance_and_condition(self, bh_fdr=0.10):
         """
         Assigns distances and conditions (diseased or healthy) to the query and reference cells in the dataset
         based on the optimal parameters for pathological shift detection.
@@ -305,12 +308,18 @@ class scPSS:
         dist_que_ref = dists_que_ref[:, k]
 
         thres = self.__get_dist_threshold__(dist_ref_ref, 1 - optimal_p)
-        predicted_diseased = dist_que_ref > thres
+        is_pathological = dist_que_ref > thres
 
-        self.adata.obs.loc[self.reference_mask, "scpss_condition"] = "reference"
+        self.adata.obs.loc[self.reference_mask, "scpss_condition"] = self._reference_label
         self.adata.obs.loc[self.query_mask, "scpss_condition"] = [
-            "diseased" if d else "healthy" for d in predicted_diseased
+            self._pathological_label if d else self._healthy_label for d in is_pathological
         ]
+        self.adata.obs["scpss_outlier"] = np.where(
+           self.adata.obs["scpss_outlier"], "Outlier", "Inlier"
+        )
+
+        self.adata.obs.loc[self.reference_mask, "scpss_outlier"] = dist_ref_ref > thres
+        self.adata.obs.loc[self.query_mask, "scpss_outlier"] = dist_que_ref > thres
 
         self.adata.obs.loc[self.reference_mask, "scpss_distances"] = dist_ref_ref
         self.adata.obs.loc[self.query_mask, "scpss_distances"] = dist_que_ref
@@ -326,11 +335,17 @@ class scPSS:
         from statsmodels.stats.multitest import multipletests
 
         rej_all, pvals_all_corrected, _, _ = multipletests(all_p_values, alpha=bh_fdr, method='fdr_bh')
-        labels = np.where(rej_all, "diseased", "healthy")
-
+        
         self.adata.obs.loc[self.reference_mask, "scpss_p_values_bh"] = pvals_all_corrected[:len(p_values_ref)]
         self.adata.obs.loc[self.query_mask, "scpss_p_values_bh"] = pvals_all_corrected[len(p_values_ref):]
-        self.adata.obs.loc[self.reference_mask, "scpss_condition_bh"] = labels[:len(p_values_ref)]
+        self.adata.obs.loc[self.reference_mask, "scpss_outlier_bh"] = rej_all[:len(p_values_ref)]
+        self.adata.obs.loc[self.query_mask, "scpss_outlier_bh"] = rej_all[len(p_values_ref):]
+        self.adata.obs["scpss_outlier_bh"] = np.where(
+           self.adata.obs["scpss_outlier_bh"], "Outlier", "Inlier"
+        )
+
+        labels = np.where(rej_all, self._pathological_label, self._healthy_label)
+        self.adata.obs.loc[self.reference_mask, "scpss_condition_bh"] = self._reference_label
         self.adata.obs.loc[self.query_mask, "scpss_condition_bh"] = labels[len(p_values_ref):]
 
         print("✅ Stored distances and conditions in Anndata object.")

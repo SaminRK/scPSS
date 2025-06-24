@@ -351,6 +351,8 @@ class scPSS:
 
         qvalues = storey_qvalue(self.adata.obs["scpss_p_values"])
         self.adata.obs["scpss_q_values"] = qvalues
-
+        qlabels = qvalues < optimal_p
+        self.adata.obs["scpss_outlier_st"] = np.where(qlabels, "Outlier", "Inlier")
+        
         print("✅ Stored distances and conditions in Anndata object.")
         

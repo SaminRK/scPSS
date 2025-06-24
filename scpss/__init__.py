@@ -245,7 +245,7 @@ class scPSS:
         print("✅ Found Optimal Parameters.")
         return params
 
-    def set_distance_and_condition(self, bh_fdr=0.10):
+    def set_distance_and_condition(self, fdr=0.10):
         """
         Assigns distances and conditions (diseased or healthy) to the query and reference cells in the dataset
         based on the optimal parameters for pathological shift detection.
@@ -335,7 +335,7 @@ class scPSS:
 
         from statsmodels.stats.multitest import multipletests
 
-        rej_all, pvals_all_corrected, _, _ = multipletests(all_p_values, alpha=bh_fdr, method='fdr_bh')
+        rej_all, pvals_all_corrected, _, _ = multipletests(all_p_values, alpha=fdr, method='fdr_bh')
         
         self.adata.obs.loc[self.reference_mask, "scpss_p_values_bh"] = pvals_all_corrected[:len(p_values_ref)]
         self.adata.obs.loc[self.query_mask, "scpss_p_values_bh"] = pvals_all_corrected[len(p_values_ref):]
@@ -349,9 +349,10 @@ class scPSS:
         self.adata.obs.loc[self.reference_mask, "scpss_condition_bh"] = self._reference_label
         self.adata.obs.loc[self.query_mask, "scpss_condition_bh"] = labels[len(p_values_ref):]
 
-        qvalues = storey_qvalue(self.adata.obs["scpss_p_values"])
+        pvalues = self.adata.obs["scpss_p_values"]
+        qvalues = storey_qvalue(pvalues)
         self.adata.obs["scpss_q_values"] = qvalues
-        qlabels = qvalues < optimal_p
+        qlabels = (pvalues < optimal_p) & (qvalues < fdr)
         self.adata.obs["scpss_outlier_st"] = np.where(qlabels, "Outlier", "Inlier")
         
         print("✅ Stored distances and conditions in Anndata object.")

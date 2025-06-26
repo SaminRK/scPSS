@@ -245,7 +245,7 @@ class scPSS:
         print("✅ Found Optimal Parameters.")
         return params
 
-    def set_distance_and_condition(self, fdr=0.10):
+    def set_distance_and_condition(self, fdr=0.25):
         """
         Assigns distances and conditions (diseased or healthy) to the query and reference cells in the dataset
         based on the optimal parameters for pathological shift detection.
@@ -330,24 +330,6 @@ class scPSS:
 
         self.adata.obs.loc[self.reference_mask, "scpss_p_values"] = p_values_ref
         self.adata.obs.loc[self.query_mask, "scpss_p_values"] = p_values_que
-
-        all_p_values = np.concatenate([p_values_ref, p_values_que])
-
-        from statsmodels.stats.multitest import multipletests
-
-        rej_all, pvals_all_corrected, _, _ = multipletests(all_p_values, alpha=fdr, method='fdr_bh')
-        
-        self.adata.obs.loc[self.reference_mask, "scpss_p_values_bh"] = pvals_all_corrected[:len(p_values_ref)]
-        self.adata.obs.loc[self.query_mask, "scpss_p_values_bh"] = pvals_all_corrected[len(p_values_ref):]
-        self.adata.obs.loc[self.reference_mask, "scpss_outlier_bh"] = rej_all[:len(p_values_ref)]
-        self.adata.obs.loc[self.query_mask, "scpss_outlier_bh"] = rej_all[len(p_values_ref):]
-        self.adata.obs["scpss_outlier_bh"] = np.where(
-           self.adata.obs["scpss_outlier_bh"], "Outlier", "Inlier"
-        )
-
-        labels = np.where(rej_all, self._pathological_label, self._healthy_label)
-        self.adata.obs.loc[self.reference_mask, "scpss_condition_bh"] = self._reference_label
-        self.adata.obs.loc[self.query_mask, "scpss_condition_bh"] = labels[len(p_values_ref):]
 
         pvalues = self.adata.obs["scpss_p_values"]
         qvalues = storey_qvalue(pvalues)

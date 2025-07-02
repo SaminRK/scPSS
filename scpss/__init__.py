@@ -309,12 +309,6 @@ class scPSS:
         dist_que_ref = dists_que_ref[:, k]
 
         thres = self.__get_dist_threshold__(dist_ref_ref, 1 - optimal_p)
-        is_pathological = dist_que_ref > thres
-
-        self.adata.obs.loc[self.reference_mask, "scpss_condition"] = self._reference_label
-        self.adata.obs.loc[self.query_mask, "scpss_condition"] = [
-            self._pathological_label if d else self._healthy_label for d in is_pathological
-        ]
         
         self.adata.obs.loc[self.reference_mask, "scpss_outlier"] = dist_ref_ref > thres
         self.adata.obs.loc[self.query_mask, "scpss_outlier"] = dist_que_ref > thres
@@ -336,6 +330,9 @@ class scPSS:
         self.adata.obs["scpss_q_values"] = qvalues
         qlabels = (pvalues < optimal_p) & (qvalues < fdr)
         self.adata.obs["scpss_outlier_st"] = np.where(qlabels, "Outlier", "Inlier")
+        
+        self.adata.obs["scpss_condition"] = np.where(qlabels, self._pathological_label, self._healthy_label)
+        self.adata.obs.loc[self.reference_mask, "scpss_condition"] = self._reference_label
         
         print("✅ Stored distances and conditions in Anndata object.")
         

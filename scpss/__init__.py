@@ -316,8 +316,8 @@ class scPSS:
            self.adata.obs["scpss_outlier"], "Outlier", "Inlier"
         )
 
-        self.adata.obs.loc[self.reference_mask, "scpss_distances"] = dist_ref_ref
-        self.adata.obs.loc[self.query_mask, "scpss_distances"] = dist_que_ref
+        self.adata.obs.loc[self.reference_mask, "scpss_scores"] = dist_ref_ref
+        self.adata.obs.loc[self.query_mask, "scpss_scores"] = dist_que_ref
 
         p_values_ref = self.__get_p_values__(dist_ref_ref, dist_ref_ref)
         p_values_que = self.__get_p_values__(dist_ref_ref, dist_que_ref)

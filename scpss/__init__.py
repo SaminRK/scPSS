@@ -56,7 +56,7 @@ class scPSS:
             random_state (int, optional): Random seed for reproducibility.
                 Defaults to 100.
         """
-        sc.pp.pca(self.adata)
+        sc.pp.pca(self.adata, random_state=random_state)
         print("✅ PCA Complete.")
         sce.pp.harmony_integrate(
             self.adata, key=self.sample_key, max_iter_harmony=max_iter_harmony, random_state=random_state

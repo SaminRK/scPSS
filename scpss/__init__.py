@@ -9,7 +9,7 @@ import scanpy.external as sce
 from typing import Optional, List, Dict
 from numpy.typing import ArrayLike
 
-from .distance_functions import custom_metrics, CDIST_METRICS
+from .distance_functions import DistanceMetricLiteral, custom_metrics, CDIST_METRICS
 from .qvalue import storey_qvalue
 
 
@@ -137,7 +137,7 @@ class scPSS:
 
     def find_optimal_parameters(
         self,
-        distance_metric="euclidean",
+        distance_metric: DistanceMetricLiteral="euclidean",
         search_n_comps: Optional[ArrayLike] = None,
         search_ks: Optional[ArrayLike] = None,
         maximum_p_val: int = 0.1,

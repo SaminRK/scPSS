@@ -158,6 +158,9 @@ class scPSS:
         The function iterates over different values of `n_comps`, `k`, and `p` to find the combination that provides the highest outlier ratio, which is indicative of the best separation between query (diseased) and reference (healthy) cells.
 
         Args:
+            distance_metric ("euclidean" | "chebyshev" | ... , optional): Distance metric to use. Must be one of the following: "mse", "mae",
+                "braycurtis", "canberra", "chebyshev", "cityblock", "cosine", "euclidean", "mahalanobis", "minkowski", "seuclidean", "sqeuclidean"
+                Default is "euclidean".
             search_n_comps (array-like, optional): A range or list containing the search space for `n_comps`. Default is values from 2 to 25.
             search_ks (array-like, optional): A range or list containing the search space for `k`. Default is values from 5 to 50.
             maximum_p_val (int, optional): Maximum allowed p-value `p` cutoff. Default is 0.1.
@@ -247,30 +250,34 @@ class scPSS:
 
     def set_distance_and_condition(self, fdr: float = 0.15):
         """
-        Assigns distances and conditions (diseased or healthy) to the query and reference cells in the dataset
-        based on the optimal parameters for pathological shift detection.
+        Computes pathological distances for all cells and assigns each query cell a condition label ("pathological" or "healthy")
+        based on the distance threshold and multiple testing correction.
 
-        This method uses the optimal parameters (`n_comps`, `k`, and `p`) obtained from `self.find_optimal_parameters()`
-        to pathological distances of query cells and reference cells and stores the values in `self.adata.obs['scpss_distances']`).
-        The function then assigns a "pathological condition" to each cell, classifying query cells as either
-        "diseased" or "healthy", based on whether their distance exceeds the calculated threshold. These labels are stored in
-        in `self.adata.obs['scpss_condition']`).
+        This method uses the optimal parameters (`n_comps`, `optimal_k`, and `optimal_p`) stored in `self.best_params`, which should be set
+        beforehand via `find_optimal_parameters`. It calculates distances from query cells to the reference distribution
+        in principal component space, computes p-values and FDR-corrected q-values, and stores all results in `self.adata.obs`.
 
         Args:
-            None (this function uses previously optimized parameters stored in `self.best_params`)
+            fdr (float, optional): Positive false discovery rate threshold for identifying significantly shifted (pathological) cells
+                based on q-values. Default is 0.15.
 
         Returns:
-            None: This function adds the following two objects in `self.adata.obs`:
-                - `scpss_distances`: The calculated pathological distances.
-                - `scpss_condition`: A categorical variable indicating the condition of each cell ("reference", "healthy", or "diseased").
+            None: Results are stored in `self.adata.obs` as the following columns:
+                - `"scpss_scores"`: Pathological shift distance scores.
+                - `"scpss_p_values"`: p-values comparing each cell's scores to the reference score distribution.
+                - `"scpss_q_values"`: FDR-corrected q-values from Storey's method.
+                - `"scpss_outlier_uncorrected"`: Label based on p-value threshold (before multiple testing correction).
+                - `"scpss_outlier"`: Label based on FDR-corrected q-values and p-value threshold.
+                - `"scpss_condition"`: Assigned condition — "reference", "healthy", or "pathological".
 
         Notes:
-            - The optimal number of principal components (`n_comps`), nearest neighbors (`k`), and significance threshold (`p`)
-            are retrieved from `self.best_params`, which should be set prior by calling the `find_optimal_parameters` function.
-            - The distances between query and reference cells are computed using pairwise distance metrics in principal component space.
-            - The threshold for classifying a query cell as "diseased" or "healthy" is determined based on the optimal `k` and `p` values.
-            - This function assigns the labels to the cells and updates the `adata.obs` DataFrame in place.
-
+            - The optimal number of components (`n_comps`), number of neighbors (`k`), and p-value threshold (`p`) are
+              retrieved from `self.best_params`, which must be set prior to calling this method.
+            - Pathological scores are computed using the selected distance metric in the `self.distance_metric` field.
+            - p-values are computed by comparing each cell's score to the fitted reference score distribution.
+            - FDR correction is applied using Storey's method, and cells with `q_value < fdr` and `p_values < optimal_p` 
+              are labeled as "pathological".
+ 
         Example:
             After calling `find_optimal_parameters`, you can invoke this function to label and assign conditions to cells as follows:
                 model.set_distance_and_condition()

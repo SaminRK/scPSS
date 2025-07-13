@@ -40,7 +40,7 @@ class scPSS:
         self.reference_mask = self.adata.obs[self.sample_key].isin(self.reference_samples)
         self.query_mask = self.adata.obs[self.sample_key].isin(self.query_samples)
         self.best_params = None
-        self.__obsm_str__ = "X_pca"
+        self._obsm_str = "X_pca"
         self._reference_label = "reference"
         self._healthy_label = "healthy"
         self._pathological_label = "pathological"
@@ -61,10 +61,10 @@ class scPSS:
         sce.pp.harmony_integrate(
             self.adata, key=self.sample_key, max_iter_harmony=max_iter_harmony, random_state=random_state
         )
-        self.__obsm_str__ = "X_pca_harmony"
+        self._obsm_str = "X_pca_harmony"
         print("✅ Harmony Integration Complete.")
 
-    def __get_dist_threshold__(self, reference_dists, q):
+    def _get_dist_threshold(self, reference_dists, q):
 
         if self.fn_to_fit == "lognormal":
             shape_fit, loc_fit, scale_fit = lognorm.fit(reference_dists, floc=min(0, np.min(reference_dists) - 1e-20))
@@ -75,7 +75,7 @@ class scPSS:
         threshold = gamma.ppf(q, a=a_fit, loc=loc_fit, scale=scale_fit)
         return threshold
 
-    def __get_p_values__(self, reference_dists, dists):
+    def _get_p_values(self, reference_dists, dists):
 
         if self.fn_to_fit == "lognormal":
             shape_fit, loc_fit, scale_fit = lognorm.fit(reference_dists, floc=min(0, np.min(reference_dists) - 1e-20))
@@ -86,14 +86,14 @@ class scPSS:
         p_values = 1 - gamma.cdf(dists, a=a_fit, loc=loc_fit, scale=scale_fit)
         return p_values
 
-    def __find_optimal_k__(self, dists_ref_ref, dists_que_ref, ks, initial_p_vals, return_outlier_ratios=False):
+    def _find_optimal_k(self, dists_ref_ref, dists_que_ref, ks, initial_p_vals, return_outlier_ratios=False):
         outlier_ratios_for_k = []
 
         q = 1 - np.array(initial_p_vals)
         for k in ks:
             reference_kth_distances = dists_ref_ref[:, k + 1]
             query_kth_distances = dists_que_ref[:, k]
-            thresholds = self.__get_dist_threshold__(reference_kth_distances, q)
+            thresholds = self._get_dist_threshold(reference_kth_distances, q)
             outlier_ratios = np.mean(query_kth_distances[:, None] > thresholds, axis=0)
             outlier_ratios_for_k.append(outlier_ratios)
 
@@ -106,13 +106,13 @@ class scPSS:
             return optimal_k, outlier_ratios_for_k
         return optimal_k
 
-    def __find_optimal_p_val__(self, dists_ref_ref, dists_que_ref, optimal_k, max_p, return_outlier_ratios=False):
+    def _find_optimal_p_val(self, dists_ref_ref, dists_que_ref, optimal_k, max_p, return_outlier_ratios=False):
         k = optimal_k
         reference_kth_distances = dists_ref_ref[:, k + 1]
         query_kth_distances = dists_que_ref[:, k]
 
         qs = np.arange(850, 1001, 5) * 0.001
-        thresholds = self.__get_dist_threshold__(reference_kth_distances, qs)
+        thresholds = self._get_dist_threshold(reference_kth_distances, qs)
 
         outlier_ratios = np.mean(query_kth_distances[:, None] > thresholds, axis=0)
 
@@ -125,7 +125,7 @@ class scPSS:
 
         return optimal_p
     
-    def __get_dist_fn__(self, distance_metric="euclidean"):
+    def _get_dist_fn(self, distance_metric="euclidean"):
         if distance_metric in CDIST_METRICS:
             return lambda A, B: cdist(A, B, metric=distance_metric)
         
@@ -200,10 +200,10 @@ class scPSS:
 
         best_outlier_ratio = 0
         params = []
-        dist_fn = self.__get_dist_fn__(self.distance_metric)
+        dist_fn = self._get_dist_fn(self.distance_metric)
         for n_comps in search_n_comps:
-            X_ref = ad_ref.obsm[self.__obsm_str__][:, :n_comps]
-            X_que = ad_que.obsm[self.__obsm_str__][:, :n_comps]
+            X_ref = ad_ref.obsm[self._obsm_str][:, :n_comps]
+            X_que = ad_que.obsm[self._obsm_str][:, :n_comps]
 
             dists_ref_ref = dist_fn(X_ref, X_ref)
             dists_ref_ref = np.sort(dists_ref_ref, axis=1)
@@ -211,8 +211,8 @@ class scPSS:
             dists_que_ref = dist_fn(X_que, X_ref)
             dists_que_ref = np.sort(dists_que_ref, axis=1)
 
-            optimal_k = self.__find_optimal_k__(dists_ref_ref, dists_que_ref, search_ks, initial_p_vals)
-            optimal_p = self.__find_optimal_p_val__(dists_ref_ref, dists_que_ref, optimal_k, maximum_p_val)
+            optimal_k = self._find_optimal_k(dists_ref_ref, dists_que_ref, search_ks, initial_p_vals)
+            optimal_p = self._find_optimal_p_val(dists_ref_ref, dists_que_ref, optimal_k, maximum_p_val)
 
             if optimal_p is None:
                 continue
@@ -220,7 +220,7 @@ class scPSS:
             dist_ref_ref = dists_ref_ref[:, optimal_k + 1]
             dist_que_ref = dists_que_ref[:, optimal_k]
 
-            thres = self.__get_dist_threshold__(dist_ref_ref, 1 - optimal_p)
+            thres = self._get_dist_threshold(dist_ref_ref, 1 - optimal_p)
             outlier_ratio = np.mean(dist_que_ref > thres)
 
             param = {
@@ -245,7 +245,7 @@ class scPSS:
         print("✅ Found Optimal Parameters.")
         return params
 
-    def set_distance_and_condition(self, fdr=0.15):
+    def set_distance_and_condition(self, fdr: float = 0.15):
         """
         Assigns distances and conditions (diseased or healthy) to the query and reference cells in the dataset
         based on the optimal parameters for pathological shift detection.
@@ -280,10 +280,10 @@ class scPSS:
         ad_ref = self.adata[self.reference_mask]
         ad_que = self.adata[self.query_mask]
 
-        X_ref = ad_ref.obsm[self.__obsm_str__][:, :n_comps]
-        X_que = ad_que.obsm[self.__obsm_str__][:, :n_comps]
+        X_ref = ad_ref.obsm[self._obsm_str][:, :n_comps]
+        X_que = ad_que.obsm[self._obsm_str][:, :n_comps]
 
-        dist_fn = self.__get_dist_fn__(self.distance_metric)
+        dist_fn = self._get_dist_fn(self.distance_metric)
 
         dists_ref_ref = dist_fn(X_ref, X_ref)
         dists_ref_ref = np.sort(dists_ref_ref, axis=1)
@@ -291,7 +291,7 @@ class scPSS:
         dists_que_ref = dist_fn(X_que, X_ref)
         dists_que_ref = np.sort(dists_que_ref, axis=1)
 
-        optimal_k, outlier_ratios_for_k = self.__find_optimal_k__(
+        optimal_k, outlier_ratios_for_k = self._find_optimal_k(
             dists_ref_ref,
             dists_que_ref,
             self.best_params["ks"],
@@ -299,7 +299,7 @@ class scPSS:
             return_outlier_ratios=True,
         )
         self.best_params["outlier_ratios_for_k"] = outlier_ratios_for_k
-        optimal_p, outlier_ratios_for_p = self.__find_optimal_p_val__(
+        optimal_p, outlier_ratios_for_p = self._find_optimal_p_val(
             dists_ref_ref, dists_que_ref, optimal_k, self.best_params["max_p_val"], return_outlier_ratios=True
         )
         self.best_params["outlier_ratios_for_p"] = outlier_ratios_for_p
@@ -308,30 +308,23 @@ class scPSS:
         dist_ref_ref = dists_ref_ref[:, k + 1]
         dist_que_ref = dists_que_ref[:, k]
 
-        thres = self.__get_dist_threshold__(dist_ref_ref, 1 - optimal_p)
-        
-        self.adata.obs.loc[self.reference_mask, "scpss_outlier"] = dist_ref_ref > thres
-        self.adata.obs.loc[self.query_mask, "scpss_outlier"] = dist_que_ref > thres
-        self.adata.obs["scpss_outlier"] = np.where(
-           self.adata.obs["scpss_outlier"], "Outlier", "Inlier"
-        )
-
         self.adata.obs.loc[self.reference_mask, "scpss_scores"] = dist_ref_ref
         self.adata.obs.loc[self.query_mask, "scpss_scores"] = dist_que_ref
-
-        p_values_ref = self.__get_p_values__(dist_ref_ref, dist_ref_ref)
-        p_values_que = self.__get_p_values__(dist_ref_ref, dist_que_ref)
-
-        self.adata.obs.loc[self.reference_mask, "scpss_p_values"] = p_values_ref
-        self.adata.obs.loc[self.query_mask, "scpss_p_values"] = p_values_que
-
-        pvalues = self.adata.obs["scpss_p_values"]
-        qvalues = storey_qvalue(pvalues)
-        self.adata.obs["scpss_q_values"] = qvalues
-        qlabels = (pvalues < optimal_p) & (qvalues < fdr)
-        self.adata.obs["scpss_outlier_st"] = np.where(qlabels, "Outlier", "Inlier")
         
-        self.adata.obs["scpss_condition"] = np.where(qlabels, self._pathological_label, self._healthy_label)
+        all_dists = self.adata.obs["scpss_scores"]
+        p_values = self._get_p_values(dist_ref_ref, all_dists)
+        self.adata.obs["scpss_p_values"] = p_values
+        q_values = storey_qvalue(p_values)
+        self.adata.obs["scpss_q_values"] = q_values
+        
+        is_outlier_uncorrected = p_values < optimal_p
+        is_outlier = (is_outlier_uncorrected) & (q_values < fdr)
+        self.adata.obs["scpss_outlier_uncorrected"] = np.where(
+           is_outlier_uncorrected, "Outlier", "Inlier"
+        )
+        self.adata.obs["scpss_outlier"] = np.where(is_outlier, "Outlier", "Inlier")
+        
+        self.adata.obs["scpss_condition"] = np.where(is_outlier, self._pathological_label, self._healthy_label)
         self.adata.obs.loc[self.reference_mask, "scpss_condition"] = self._reference_label
         
         print("✅ Stored distances and conditions in Anndata object.")

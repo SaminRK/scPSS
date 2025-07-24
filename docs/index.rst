@@ -7,14 +7,9 @@ scPSS documentation
 ===================
 scPSS: single-cell Pathological Shift Scoring
 
-
 .. toctree::
    :maxdepth: 2
-   :caption: API Documentation:
+   :caption: Contents:
 
-   modules
-
-.. automodule:: scpss
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   api
+   tutorial

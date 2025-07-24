@@ -10,13 +10,6 @@ scPSS: single-cell Pathological Shift Scoring
 
 .. toctree::
    :maxdepth: 2
-   :caption: Contents:
+   :caption: API Documentation:
 
-
-API Reference
-=============
-
-.. automodule:: scpss
-   :members:
-   :undoc-members:
-   :show-inheritance:
+   modules

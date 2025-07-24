@@ -5,9 +5,12 @@
 
 A statistical framework for quantifying pathological progression in single-cell transcriptomics data by measuring shifts from healthy reference states.
 
-![Overview of scPSS pipeline](images/Fig1.png)
+The Documentation of scPSS code is available at [scPSS Documentation](https://scpss.readthedocs.io/en/latest/api.html) and a tutorial on how to use it on single-cell data is available at [Tutorial](https://scpss.readthedocs.io/en/latest/scpss_on_mouse_infarcted_heart_sc.html).
+
 
 ## Overview
+![Overview of scPSS pipeline](images/Fig1.png)
+
 
 scPSS (single-cell Pathological Shift Scoring) is a computational method that:
 - Quantifies how much individual cells deviate from healthy reference states
@@ -44,8 +47,8 @@ scpss.harmony_integrate()
 scpss.find_optimal_parameters()
 scpss.set_distance_and_condition()
 
-# Access pathological distances
-distances = scpss.ad.obs["scpss_distances"]
+# Access pathological scores
+scores = scpss.ad.obs["scpss_scores"]
 ```
 
 ## Reproducibility
@@ -58,12 +61,15 @@ The code to reproduce the results in our paper is available at [scPSS-reproducib
 If you use scPSS in your research, please cite:
 
 ```bibtex
-@article{Khan2024.11.27.625593,
-    author = {Khan, Samin Rahman and Rahman, M. Sohel and Samee, Md. Abul Hassan},
-    title = {Quantifying Pathological Progression from Single-Cell Data},
-    journal = {bioRxiv},
-    year = {2024},
-    doi = {10.1101/2024.11.27.625593},
-    URL = {https://www.biorxiv.org/content/10.1101/2024.11.27.625593v1}
+@article {Khan2024.11.27.625593,
+	author = {Khan, Samin Rahman and Rahman, M. Sohel and Samee, Md. Abul Hassan},
+	title = {Quantifying Pathological Progression from Single-Cell Data},
+	elocation-id = {2024.11.27.625593},
+	year = {2025},
+	doi = {10.1101/2024.11.27.625593},
+	publisher = {Cold Spring Harbor Laboratory},
+	URL = {https://www.biorxiv.org/content/early/2025/01/16/2024.11.27.625593},
+	eprint = {https://www.biorxiv.org/content/early/2025/01/16/2024.11.27.625593.full.pdf},
+	journal = {bioRxiv}
 }
 ```

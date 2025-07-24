@@ -23,6 +23,16 @@ scPSS (single-cell Pathological Shift Scoring) is a computational method that:
 pip install git+https://github.com/SaminRK/scPSS.git
 ```
 
+## Input Data Format
+
+`scPSS` requires input in the [AnnData](https://anndata.readthedocs.io/en/latest/) format, which is standard in the Scanpy ecosystem.
+
+### Metadata in `.obs`
+
+- The `.obs` should contain a **categorical column** (e.g., `sample`) indicating the **sample ID** for each cell.
+- This `sample` field is used for performing **sample-specific batch effect correction**. Also, we pass into scPSS the list of reference and query samples for defining **reference** vs. **query** groups (e.g., healthy vs. disease).
+
+
 ## Quickstart
 ```Python
 import scanpy as sc

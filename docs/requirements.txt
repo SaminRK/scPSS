@@ -135,3 +135,5 @@ tzdata==2024.2
     # via pandas
 umap-learn==0.5.7
     # via scanpy
+
+nbsphinx

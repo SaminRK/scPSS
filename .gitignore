@@ -3,7 +3,7 @@ __pycache__/
 *.py[cod]
 
 # Virtual environments
-.venv/
+.venv*/
 
 # Distribution artifacts
 build/
@@ -21,3 +21,5 @@ dist/
 # System files
 .DS_Store
 Thumbs.db
+
+docs/_build

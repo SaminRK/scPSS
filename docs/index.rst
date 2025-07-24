@@ -13,3 +13,8 @@ scPSS: single-cell Pathological Shift Scoring
    :caption: API Documentation:
 
    modules
+
+.. automodule:: scpss
+   :members:
+   :undoc-members:
+   :show-inheritance:

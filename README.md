@@ -51,6 +51,10 @@ scpss.set_distance_and_condition()
 scores = scpss.ad.obs["scpss_scores"]
 ```
 
+## Dependencies
+
+The dependencies are listed in [requirements.txt](https://github.com/SaminRK/scPSS/blob/master/requirements.txt)
+
 ## Reproducibility
 
 The code to reproduce the results in our paper is available at [scPSS-reproducibility](https://github.com/SaminRK/scPSS-reproducibility).

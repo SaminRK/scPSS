@@ -1,6 +1,6 @@
 # scPSS: single-cell Pathological Shift Scoring
 
-[![bioRxiv](https://img.shields.io/badge/bioRxiv-2024.11.27.625593-blue)](https://www.biorxiv.org/content/10.1101/2024.11.27.625593v1)
+[![GenomeResearch](https://img.shields.io/badge/Genome%20Res.-10.1101/gr.280411.125-blue)](https://doi.org/10.1101/gr.280411.125)
 [![Python](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/)
 
 A statistical framework for quantifying pathological progression in single-cell transcriptomics data by measuring shifts from healthy reference states.
@@ -75,15 +75,14 @@ The code to reproduce the results in our paper is available at [scPSS-reproducib
 If you use scPSS in your research, please cite:
 
 ```bibtex
-@article {Khan2024.11.27.625593,
-	author = {Khan, Samin Rahman and Rahman, M. Sohel and Samee, Md. Abul Hassan},
-	title = {Quantifying Pathological Progression from Single-Cell Data},
-	elocation-id = {2024.11.27.625593},
-	year = {2025},
-	doi = {10.1101/2024.11.27.625593},
-	publisher = {Cold Spring Harbor Laboratory},
-	URL = {https://www.biorxiv.org/content/early/2025/01/16/2024.11.27.625593},
-	eprint = {https://www.biorxiv.org/content/early/2025/01/16/2024.11.27.625593.full.pdf},
-	journal = {bioRxiv}
+@article{khan2026quantifying,
+  title={Quantifying pathological progression from single-cell transcriptomic data with scPSS},
+  author={Khan, Samin Rahman and Rahman, M Saifur and Rahman, M Sohel and Samee, Md Abul Hassan},
+  journal={Genome Research},
+  volume={36},
+  number={2},
+  pages={375--386},
+  year={2026},
+  publisher={Cold Spring Harbor Lab}
 }
 ```
